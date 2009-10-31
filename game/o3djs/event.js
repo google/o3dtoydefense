@@ -29,11 +29,14 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+
 /**
  * @fileoverview This file contains various event related functions for
  * o3d.  It puts them in the 'event' module on the o3djs object.
  *
- * TODO(maf) Add selenium tests.
+ * TODO Add selenium tests.
+ *
+ *
  */
 o3djs.provide('o3djs.event');
 
@@ -44,19 +47,19 @@ o3djs.provide('o3djs.event');
 o3djs.event = o3djs.event || {};
 
 /**
-  * @param {String} inStr base string.
-  * @param {String} extraStr string to append.
-  * @return {String} inStr + ' ' + extraStr, or just inStr if extraStr is ''.
+  * @param {string} inStr base string.
+  * @param {string} extraStr string to append.
+  * @return {string} inStr + ' ' + extraStr, or just inStr if extraStr is ''.
   */
 o3djs.event.appendWithSpace = function(inStr, extraStr) {
   return (inStr.length == 0) ? extraStr : inStr + ' ' + extraStr;
 };
 
 /**
-  * @param {Boolean} state whether to append or not.
-  * @param {String} inStr base string.
-  * @param {String} extraStr string to append.
-  * @return {String} inStr + ' ' + extraStr, or just inStr if state is false.
+  * @param {boolean} state whether to append or not.
+  * @param {string} inStr base string.
+  * @param {string} extraStr string to append.
+  * @return {string} inStr + ' ' + extraStr, or just inStr if state is false.
   */
 o3djs.event.appendWithSpaceIf = function(state, inStr, extraStr) {
   return (state) ? o3djs.event.appendWithSpace(inStr, extraStr) : inStr;
@@ -67,11 +70,11 @@ o3djs.event.appendWithSpaceIf = function(state, inStr, extraStr) {
  * Builds a DOM-level 3 modifier string for a KeyboardEvent - see
  * http://www.w3.org/TR/DOM-Level-3-Events/events.html
  * #Events-KeyboardEvents-Interfaces.
- * @param {Boolean} control whether the control key is down.
- * @param {Boolean} alt whether the alt/option key is down.
- * @param {Boolean} shift whether the shift key is down.
- * @param {Boolean} meta whether the meta/command key is down.
- * @return {String} space delimited list of keys that are down.
+ * @param {boolean} control whether the control key is down.
+ * @param {boolean} alt whether the alt/option key is down.
+ * @param {boolean} shift whether the shift key is down.
+ * @param {boolean} meta whether the meta/command key is down.
+ * @return {string} space delimited list of keys that are down.
  */
 o3djs.event.getModifierString = function(control, alt, shift, meta) {
   var modStr = o3djs.event.appendWithSpaceIf(control, '', 'Control');
@@ -83,9 +86,9 @@ o3djs.event.getModifierString = function(control, alt, shift, meta) {
 
 /**
  * Pad a string with leading zeroes if needed until it is the length desired.
- * @param {String} str The input string, probably representing a number.
- * @param {Integer} to_length The desired minimum length of string with padding.
- * @return {String} A string padded with leading zeroes as needed to be the
+ * @param {string} str The input string, probably representing a number.
+ * @param {number} to_length The desired minimum length of string with padding.
+ * @return {string} A string padded with leading zeroes as needed to be the
  * length desired.
  */
 o3djs.event.padWithLeadingZeroes = function(str, to_length) {
@@ -97,14 +100,14 @@ o3djs.event.padWithLeadingZeroes = function(str, to_length) {
 /**
  * Creates a keyIdentifer string for a given keystroke as specified in the w3c
  * spec on http://www.w3.org/TR/DOM-Level-3-Events/events.html.
- * @param {Integer} charCode numeric unicode code point as reported by the OS.
- * @param {Integer} keyCode numeric keyCode as reported by the OS, currently
+ * @param {number} charCode numeric unicode code point as reported by the OS.
+ * @param {number} keyCode numeric keyCode as reported by the OS, currently
  * unused but will probably be necessary in the future.
- * @return {String} eg 'Left' or 'U+0040'.
+ * @return {string} eg 'Left' or 'U+0040'.
  */
 o3djs.event.getKeyIdentifier = function(charCode, keyCode) {
   if (!charCode) {
-    // TODO(ericu): This works for webkit for keydown and keyup, for basic
+    // TODO: This works for webkit for keydown and keyup, for basic
     // alphanumeric keys, at least.  Likely it needs lots of work to handle
     // accented characters, various keyboards, etc., as does the rest of our
     // keyboard event code.
@@ -125,11 +128,11 @@ o3djs.event.getKeyIdentifier = function(charCode, keyCode) {
 
 /** Takes a keyIdentifier string and remaps it to an ASCII/Unicode value
  *  suitable for javascript event handling.
- * @param {String} keyIdent a keyIdentifier string as generated above.
- * @return {Integer} the numeric Unicode code point represented.
+ * @param {string} keyIdent a keyIdentifier string as generated above.
+ * @return {number} the numeric Unicode code point represented.
  */
 o3djs.event.keyIdentifierToChar = function(keyIdent) {
-  if (keyIdent) {
+  if (keyIdent && typeof(keyIdent) == 'string') {
     switch (keyIdent) {
       case 'Enter': return 13;
       case 'Left': return 37;
@@ -137,8 +140,8 @@ o3djs.event.keyIdentifierToChar = function(keyIdent) {
       case 'Up': return 38;
       case 'Down': return 40;
     }
-  if (keyIdent.indexOf('U+') == 0)
-    return parseInt(keyIdent.substr(2).toUpperCase(), 16);
+    if (keyIdent.indexOf('U+') == 0)
+      return parseInt(keyIdent.substr(2).toUpperCase(), 16);
   }
   return 0;
 };
@@ -146,15 +149,15 @@ o3djs.event.keyIdentifierToChar = function(keyIdent) {
 /**
  *  Extracts the key char in number form from the event, in a cross-browser
  *  manner.
- * @param {KeyboardEvent} event .
- * @return {Integer} unicode code point for the key.
+ * @param {!Event} event .
+ * @return {number} unicode code point for the key.
  */
 o3djs.event.getEventKeyChar = function(event) {
   if (!event) {
     event = window.event;
   }
   var charCode = 0;
-  if (event.keyIdentifier)
+  if (event.keyIdentifier) 
     charCode = o3djs.event.keyIdentifierToChar(event.keyIdentifier);
   if (!charCode)
     charCode = (window.event) ? window.event.keyCode : event.charCode;
@@ -168,7 +171,7 @@ o3djs.event.getEventKeyChar = function(event) {
  * Cancel an event we've handled so it stops propagating upwards.
  * The cancelBubble is for IE, stopPropagation is for all other browsers.
  * preventDefault ensures that the default action is also canceled.
- * @param {Event} event - the event to cancel.
+ * @param {!Event} event - the event to cancel.
  */
 o3djs.event.cancel = function(event) {
   if (!event)
@@ -183,21 +186,17 @@ o3djs.event.cancel = function(event) {
 /**
  * Convenience function to setup synthesizing and dispatching of keyboard events
  * whenever the focussed plug-in calls Javascript to report a keyboard action.
- * @param {Object} pluginObject the <object> where the o3d plugin lives,
+ * @param {!Element} pluginObject the <object> where the o3d plugin lives,
  * which the caller probably obtained by calling getElementById.
  */
 o3djs.event.startKeyboardEventSynthesis = function(pluginObject) {
-  if (!o3djs.base.IsMSIE()) {
-    // We don't do this on IE because we somehow get events via both plugin and
-    // browser already.  Ideally we'll fix that.
-    var handler = function(event) {
-      o3djs.event.onKey(event, pluginObject);
-    };
+  var handler = function(event) {
+    o3djs.event.onKey(event, pluginObject);
+  };
 
-    o3djs.event.addEventListener(pluginObject, 'keypress', handler);
-    o3djs.event.addEventListener(pluginObject, 'keydown', handler);
-    o3djs.event.addEventListener(pluginObject, 'keyup', handler);
-  }
+  o3djs.event.addEventListener(pluginObject, 'keypress', handler);
+  o3djs.event.addEventListener(pluginObject, 'keydown', handler);
+  o3djs.event.addEventListener(pluginObject, 'keyup', handler);
 };
 
 /**
@@ -205,8 +204,8 @@ o3djs.event.startKeyboardEventSynthesis = function(pluginObject) {
  * see http://www.w3.org/TR/DOM-Level-3-Events/events.html
  * #Events-KeyboardEvents-Interfaces
  * see http://developer.mozilla.org/en/DOM/event.initKeyEvent
- * @param {Object} event a o3d event object.
- * @param {Object} pluginObject the plugin object on the page.
+ * @param {!Event} event an O3D event object.
+ * @param {!Element} pluginObject the plugin object on the page.
  */
 o3djs.event.onKey = function(event, pluginObject) {
   var k_evt = o3djs.event.createKeyEvent(event.type, event.charCode,
@@ -229,13 +228,13 @@ o3djs.event.onKey = function(event, pluginObject) {
  * see http://www.w3.org/TR/DOM-Level-3-Events/events.html
  * #Events-KeyboardEvents-Interfaces.
  * see http://developer.mozilla.org/en/DOM/event.initKeyEvent
- * @param {String} eventName one of 'keypress', 'keydown' or 'keyup'.
- * @param {Integer} charCode the character code for the key.
- * @param {Integer} keyCode the key code for the key.
- * @param {Boolean} control whether the control key is down.
- * @param {Boolean} alt whether the alt/option key is down.
- * @param {Boolean} shift whether the shift key is down.
- * @param {Boolean} meta whether the meta/command key is down.
+ * @param {string} eventName one of 'keypress', 'keydown' or 'keyup'.
+ * @param {number} charCode the character code for the key.
+ * @param {number} keyCode the key code for the key.
+ * @param {boolean} control whether the control key is down.
+ * @param {boolean} alt whether the alt/option key is down.
+ * @param {boolean} shift whether the shift key is down.
+ * @param {boolean} meta whether the meta/command key is down.
  */
 o3djs.event.createKeyEvent = function(eventName, charCode, keyCode,
                                       control, alt, shift, meta) {
@@ -247,7 +246,7 @@ o3djs.event.createKeyEvent = function(eventName, charCode, keyCode,
       k_evt.initKeyboardEvent(eventName, true, true, window,
                    keyIdentifier, 0,
                    control, alt, shift, meta);
-      // TODO(ericu): These actually fail to do anything in Chrome; those are
+      // TODO: These actually fail to do anything in Chrome; those are
       // read-only fields, and it's not setting them in initKeyboardEvent.
       k_evt.charCode = charCode;
       if (eventName == 'keypress')
@@ -278,8 +277,9 @@ o3djs.event.createKeyEvent = function(eventName, charCode, keyCode,
  * sub-handlers.  The sub-handlers may either be functions or EventListeners.
  * This is generally expected to be used only through
  * o3djs.event.addEventListener.
- * @param {Array} listenerSet an array of handlers.
- * @return {Function} a closure to be used to multiplex out event-handling.
+ * @param {!Array.<*>} listenerSet an array of handlers.
+ * @return {!function(*): void} a closure to be used to multiplex out
+ *     event-handling.
  */
 o3djs.event.createEventHandler = function(listenerSet) {
   return function(event) {
@@ -299,11 +299,11 @@ o3djs.event.createEventHandler = function(listenerSet) {
  * Convenience function to manage event listeners on the o3d plugin object,
  * intended as a drop-in replacement for the DOM addEventListener [with slightly
  * different arguments, but the same effect].
- * @param {Object} pluginObject the <object> where the o3d plugin lives,
- * which the caller probably obtained by calling getElementById.
- * @param {String} type the event type on which to trigger, e.g. 'mousedown',
+ * @param {!Element} pluginObject the html object where the o3d plugin lives,
+ * which the caller probably obtained by calling getElementById or makeClients.
+ * @param {string} type the event type on which to trigger, e.g. 'mousedown',
  * 'mousemove', etc.
- * @param {Object} type either a function or an EventListener object.
+ * @param {!Object} handler either a function or an EventListener object.
  */
 o3djs.event.addEventListener = function(pluginObject, type, handler) {
   if (!handler || typeof(type) != 'string' ||
@@ -333,11 +333,11 @@ o3djs.event.addEventListener = function(pluginObject, type, handler) {
  * Convenience function to manage event listeners on the o3d plugin object,
  * intended as a drop-in replacement for the DOM removeEventListener [with
  * slightly different arguments, but the same effect].
- * @param {Object} pluginObject the <object> where the o3d plugin lives,
+ * @param {!Element} pluginObject the <object> where the o3d plugin lives,
  * which the caller probably obtained by calling getElementById.
- * @param {String} type the event type on which the handler to be removed was to
+ * @param {string} type the event type on which the handler to be removed was to
  * trigger, e.g. 'mousedown', 'mousemove', etc.
- * @param {Object} type either a function or an EventListener object.
+ * @param {!Object} handler either a function or an EventListener object.
  */
 o3djs.event.removeEventListener = function(pluginObject, type, handler) {
   var registry = pluginObject.o3d_eventRegistry;

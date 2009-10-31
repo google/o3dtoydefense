@@ -29,9 +29,12 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+
 /**
  * @fileoverview This is a simple unit testing library used to test the
  * sample utilities
+ *
+ *
  */
 o3djs.provide('o3djs.test');
 
@@ -42,7 +45,7 @@ o3djs.test = o3djs.test || {};
 
 /**
   * Class of errors thrown by assertions
-  * @param {String} message The assertion message.
+  * @param {string} message The assertion message.
   * @this o3djs.test.AssertionError
   */
 o3djs.test.AssertionError = function(message) {
@@ -60,8 +63,8 @@ o3djs.test.AssertionError = function(message) {
 /**
   * Runs all the tests found in the given suite. Every function with a
   * name beginning with 'test' is considered to be a test.
-  * @param {object} suite The object containing the test suite.
-  * @param {object} opt_reporter An optional object to which the results
+  * @param {!Object} suite The object containing the test suite.
+  * @param {!Object} opt_reporter An optional object to which the results
   *    of the test run are reported.
   * @return {boolean} Whether all the tests passed.
   */
@@ -104,7 +107,7 @@ o3djs.test.runTests = function(suite, opt_reporter) {
   * @param {*} value The value to convert.
   * @param {number} opt_depth The depth of references to follow for nested
   *     objects. Defaults to 3.
-  * @return {String} The string representation.
+  * @return {string} The string representation.
   */
 o3djs.test.valueToString_ = function(value, opt_depth) {
   if (opt_depth === undefined) {
@@ -117,21 +120,24 @@ o3djs.test.valueToString_ = function(value, opt_depth) {
         string = '?';
       } else {
         if (o3djs.base.isArray(value)) {
+          var valueAsArray = /** @type {!Array.<*>} */ (value);
           string = '[';
           var separator = '';
-          for (var i = 0; i < value.length; ++i) {
+          for (var i = 0; i < valueAsArray.length; ++i) {
             string += separator +
-                o3djs.test.valueToString_(value[i], opt_depth - 1);
+                o3djs.test.valueToString_(valueAsArray[i], opt_depth - 1);
             separator = ', ';
           }
           string += ']';
         } else {
+          var valueAsObject = /** @type {!Object} */ (value);
           string = '{';
           var separator = '';
-          for (var propertyName in value) {
-            if (typeof(value[propertyName]) !== 'function') {
+          for (var propertyName in valueAsObject) {
+            if (typeof(valueAsObject[propertyName]) !== 'function') {
               string += separator + propertyName + ': ' +
-                  o3djs.test.valueToString_(value[propertyName], opt_depth - 1);
+                  o3djs.test.valueToString_(valueAsObject[propertyName],
+                                            opt_depth - 1);
               separator = ', ';
             }
           }
@@ -175,7 +181,7 @@ o3djs.test.assertFalse = function(value) {
 
 /**
   * Asserts that a value is null from within a test
-  * @param {boolean} value The value to test.
+  * @param {*} value The value to test.
   */
 o3djs.test.assertNull = function(value) {
   if (value !== null) {
@@ -202,8 +208,8 @@ o3djs.test.assertEquals = function(expected, actual) {
 /**
   * Asserts that an expected value is close to an actual value
   * within a tolerance of 0.001.
-  * @param {*} expected The expected value.
-  * @param {*} actual The actual value.
+  * @param {number} expected The expected value.
+  * @param {number} actual The actual value.
   */
 o3djs.test.assertClose = function(expected, actual) {
   if (actual < expected - 0.001 || actual > expected + 0.001) {
@@ -217,8 +223,8 @@ o3djs.test.assertClose = function(expected, actual) {
 /**
   * Determines whether the elements of a pair of arrays are equal.
   * @private
-  * @param {Array.*} expected The expected array.
-  * @param {Array.*} actual The actual array.
+  * @param {!Array.<*>} expected The expected array.
+  * @param {!Array.<*>} actual The actual array.
   * @return {boolean} Whether the arrays are equal.
   */
 o3djs.test.compareArrays_ = function(expected, actual) {
@@ -227,7 +233,9 @@ o3djs.test.compareArrays_ = function(expected, actual) {
   }
   for (var i = 0; i != expected.length; ++i) {
     if (o3djs.base.isArray(expected[i]) && o3djs.base.isArray(actual[i])) {
-      if (!o3djs.test.compareArrays_(expected[i], actual[i])) {
+      var expectedAsArray = /** @type {!Array.<*>} */ (expected[i]);
+      var actualAsArray = /** @type {!Array.<*>} */ (actual[i]);
+      if (!o3djs.test.compareArrays_(expectedAsArray, actualAsArray)) {
         return false;
       }
     } else if (expected[i] !== actual[i]) {
@@ -239,8 +247,8 @@ o3djs.test.compareArrays_ = function(expected, actual) {
 
 /**
   * Asserts that an expected array is equal to an actual array.
-  * @param {Array.*} expected The expected array.
-  * @param {Array.*} actual The actual array.
+  * @param {!Array.<*>} expected The expected array.
+  * @param {!Array.<*>} actual The actual array.
   */
 o3djs.test.assertArrayEquals = function(expected, actual) {
   if (!o3djs.base.isArray(expected)) {
@@ -266,9 +274,9 @@ o3djs.test.assertArrayEquals = function(expected, actual) {
 /**
  * Creates a DOM paragraph object for the given text and color.
  * @private
- * @param {String} text The text of the message.
- * @param {String} opt_color The optional color of the message.
- * @return {Node} A DOM paragraph object.
+ * @param {string} text The text of the message.
+ * @param {string} opt_color The optional color of the message.
+ * @return {!Element} A DOM paragraph object.
  */
 o3djs.test.createReportParagraph_ = function(text, opt_color) {
   var textNode = document.createTextNode(text);
@@ -282,8 +290,14 @@ o3djs.test.createReportParagraph_ = function(text, opt_color) {
 
 /**
  * A reporter that reports messages to the document (i.e. the DOM).
+ * @type {!Object}
  */
 o3djs.test.documentReporter = {
+  /**
+   * A Report div.
+   * @private
+   * @this {Object}
+   */
   getReportDiv_: function() {
     if (!this.reportDiv_) {
       this.reportDiv_ = document.createElement('div');
@@ -291,11 +305,20 @@ o3djs.test.documentReporter = {
     }
     return this.reportDiv_;
   },
+  /**
+   * Reports a test passed.
+   * @param {string} testName The name of the test.
+   * @this {Object}
+   */
   reportPass: function(testName) {
     var paragraph = o3djs.test.createReportParagraph_(
         testName + ' : PASS', 'green');
     this.getReportDiv_().appendChild(paragraph);
   },
+  /**
+   * Reports a test failed.
+   * @param {string} testName The name of the test.
+   */
   reportFail: function(testName, message) {
     var paragraph = o3djs.test.createReportParagraph_(
         testName + ' : FAIL : ' + message, 'red');
@@ -303,6 +326,12 @@ o3djs.test.documentReporter = {
     reportDiv.insertBefore(paragraph,
                            reportDiv.firstChild);
   },
+  /**
+   * Reports a test summary.
+   * @param {number} passCount The number of tests that passed.
+   * @param {number} failCount The number of tests that failed.
+   * @this {Object}
+   */
   reportSummary: function(passCount, failCount) {
     var paragraph = o3djs.test.createReportParagraph_(
         passCount + ' passed, ' + failCount + ' failed', 'blue');

@@ -29,15 +29,20 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+
 /**
  * @fileoverview This file provides support for deserializing (loading)
  *     transform graphs from JSON files.
+ *
  */
 
 o3djs.provide('o3djs.serialization');
 
+o3djs.require('o3djs.error');
+o3djs.require('o3djs.texture');
+
 /**
- * A Module for handling events related to o3d and various browsers.
+ * A Module for deserializing a scene created by the sample o3dConverter.
  * @namespace
  */
 o3djs.serialization = o3djs.serialization || {};
@@ -49,6 +54,27 @@ o3djs.serialization = o3djs.serialization || {};
  * @type {number}
  */
 o3djs.serialization.supportedVersion = 5;
+
+/**
+ * These are the values the sample o3dConverter uses to identify curve key
+ * types.
+ * @type {!Object}
+ */
+o3djs.serialization.CURVE_KEY_TYPES = {
+  step: 1,
+  linear: 2,
+  bezier: 3};
+
+/**
+ * Options for deserialization.
+ *
+ * opt_animSource is an optional ParamFloat that will be bound as the source
+ * param for all animation time params in the scene. opt_async is a bool that
+ * will make the deserialization process async.
+ *
+ * @type {{opt_animSource: !o3d.ParamFloat, opt_async: boolean}}
+ */
+o3djs.serialization.Options = goog.typedef;
 
 /**
  * A Deserializer incrementally deserializes a transform graph.
@@ -76,54 +102,81 @@ o3djs.serialization.Deserializer = function(pack, json) {
   this.archiveInfo = null;
 
   /**
+   * Deserializes a Buffer .
+   * @param {!o3djs.serialization.Deserializer} deserializer The deserializer.
+   * @param {!Object} json The json for this buffer.
+   * @param {string} type The type of buffer to create.
+   * @param {string} uri The uri of the file containing the binary data.
+   */
+  function deserializeBuffer(deserializer, json, type, uri) {
+    var object = deserializer.pack.createObject(type);
+    if ('custom' in json) {
+      if ('fieldData' in json.custom) {
+        var fieldDataArray = json.custom.fieldData;
+        if (fieldDataArray.length > 0) {
+          var fields = [];
+          // First create all the fields
+          for (var ii = 0; ii < fieldDataArray.length; ++ii) {
+            var data = fieldDataArray[ii];
+            var field = object.createField(data.type, data.numComponents);
+            fields.push(field);
+            deserializer.addObject(data.id, field);
+          }
+          var firstData = fieldDataArray[0];
+          var numElements = firstData.data.length / firstData.numComponents;
+          object.allocateElements(numElements);
+          // Now set the data.
+          for (var ii = 0; ii < fieldDataArray.length; ++ii) {
+            var data = fieldDataArray[ii];
+            fields[ii].setAt(0, data.data);
+          }
+        }
+      } else {
+        var rawData = deserializer.archiveInfo.getFileByURI(uri);
+        object.set(rawData,
+                   json.custom.binaryRange[0],
+                   json.custom.binaryRange[1] - json.custom.binaryRange[0]);
+        for (var i = 0; i < json.custom.fields.length; ++i) {
+          deserializer.addObject(json.custom.fields[i], object.fields[i]);
+        }
+      }
+    }
+    return object;
+  }
+
+  /**
    * A map from classname to a function that will create
    * instances of objects. Add entries to support additional classes.
    * @type {!Object}
    */
   this.createCallbacks = {
-    'o3d.VertexBuffer': function(deserializer, json) {
+    'o3djs.DestinationBuffer': function(deserializer, json) {
       var object = deserializer.pack.createObject('o3d.VertexBuffer');
       if ('custom' in json) {
-        var rawData = deserializer.archiveInfo.getFileByURI(
-            'vertex-buffers.bin');
-        object.set(rawData,
-                   json.custom.binaryRange[0],
-                   json.custom.binaryRange[1] - json.custom.binaryRange[0]);
         for (var i = 0; i < json.custom.fields.length; ++i) {
-          deserializer.addObject(json.custom.fields[i], object.fields[i]);
+          var fieldInfo = json.custom.fields[i]
+          var field = object.createField(fieldInfo.type,
+                                         fieldInfo.numComponents);
+          deserializer.addObject(fieldInfo.id, field);
         }
+        object.allocateElements(json.custom.numElements);
       }
       return object;
+    },
+
+    'o3d.VertexBuffer': function(deserializer, json) {
+      return deserializeBuffer(
+          deserializer, json, 'o3d.VertexBuffer', 'vertex-buffers.bin');
     },
 
     'o3d.SourceBuffer': function(deserializer, json) {
-      var object = deserializer.pack.createObject('o3d.SourceBuffer');
-      if ('custom' in json) {
-        var rawData = deserializer.archiveInfo.getFileByURI(
-            'vertex-buffers.bin');
-        object.set(rawData,
-                   json.custom.binaryRange[0],
-                   json.custom.binaryRange[1] - json.custom.binaryRange[0]);
-        for (var i = 0; i < json.custom.fields.length; ++i) {
-          deserializer.addObject(json.custom.fields[i], object.fields[i]);
-        }
-      }
-      return object;
+      return deserializeBuffer(
+          deserializer, json, 'o3d.SourceBuffer', 'vertex-buffers.bin');
     },
 
     'o3d.IndexBuffer': function(deserializer, json) {
-      var object = deserializer.pack.createObject('o3d.IndexBuffer');
-      if ('custom' in json) {
-        var rawData = deserializer.archiveInfo.getFileByURI(
-            'index-buffers.bin');
-        object.set(rawData,
-                   json.custom.binaryRange[0],
-                   json.custom.binaryRange[1] - json.custom.binaryRange[0]);
-        for (var i = 0; i < json.custom.fields.length; ++i) {
-          deserializer.addObject(json.custom.fields[i], object.fields[i]);
-        }
-      }
-      return object;
+      return deserializeBuffer(
+          deserializer, json, 'o3d.IndexBuffer', 'index-buffers.bin');
     },
 
     'o3d.Texture2D': function(deserializer, json) {
@@ -133,9 +186,7 @@ o3djs.serialization.Deserializer = function(pack, json) {
         if (!rawData) {
           throw 'Could not find texture ' + uri + ' in the archive';
         }
-        return deserializer.pack.createTextureFromRawData(
-            rawData,
-            true);
+        return o3djs.texture.createTextureFromRawData(pack, rawData, true);
       } else {
         return deserializer.pack.createTexture2D(
             json.custom.width,
@@ -153,9 +204,7 @@ o3djs.serialization.Deserializer = function(pack, json) {
         if (!rawData) {
           throw 'Could not find texture ' + uri + ' in the archive';
         }
-        return deserializer.pack.createTextureFromRawData(
-            rawData,
-            true);
+        return o3djs.texture.createTextureFromRawData(pack, rawData, true);
       } else {
         return deserializer.pack.createTextureCUBE(
             json.custom.edgeLength,
@@ -175,10 +224,31 @@ o3djs.serialization.Deserializer = function(pack, json) {
   this.initCallbacks = {
     'o3d.Curve': function(deserializer, object, json) {
       if ('custom' in json) {
-        var rawData = deserializer.archiveInfo.getFileByURI('curve-keys.bin');
-        object.set(rawData,
-                   json.custom.binaryRange[0],
-                   json.custom.binaryRange[1] - json.custom.binaryRange[0]);
+        if ('keys' in json.custom) {
+          var keys = json.custom.keys;
+          var stepType = o3djs.serialization.CURVE_KEY_TYPES.step;
+          var linearType = o3djs.serialization.CURVE_KEY_TYPES.linear;
+          var bezierType = o3djs.serialization.CURVE_KEY_TYPES.bezier;
+          for (var ii = 0; ii < keys.length; ++ii) {
+            var key = keys[ii];
+            switch (key[0]) {
+            case stepType:  // Step
+              object.addStepKeys(key.slice(1));
+              break;
+            case linearType:  // Linear
+              object.addLinearKeys(key.slice(1));
+              break;
+            case bezierType:  // Bezier
+              object.addBezierKeys(key.slice(1));
+              break;
+            }
+          }
+        } else {
+          var rawData = deserializer.archiveInfo.getFileByURI('curve-keys.bin');
+          object.set(rawData,
+                     json.custom.binaryRange[0],
+                     json.custom.binaryRange[1] - json.custom.binaryRange[0]);
+        }
       }
     },
 
@@ -213,7 +283,6 @@ o3djs.serialization.Deserializer = function(pack, json) {
                                  streamJson.stream.semanticIndex,
                                  field,
                                  streamJson.stream.startIndex);
-
           if ('bind' in streamJson) {
             var source = deserializer.getObjectById(streamJson.bind);
             object.bindStream(source,
@@ -233,7 +302,6 @@ o3djs.serialization.Deserializer = function(pack, json) {
                                  streamJson.stream.semanticIndex,
                                  field,
                                  streamJson.stream.startIndex);
-
           if ('bind' in streamJson) {
             var source = deserializer.getObjectById(streamJson.bind);
             object.bindStream(source,
@@ -262,7 +330,7 @@ o3djs.serialization.Deserializer = function(pack, json) {
   /**
    * An array of all objects deserialized so far, indexed by object id. Id zero
    * means null.
-   * @type {!Array.<Object>}
+   * @type {!Array.<(Object|undefined)>}
    * @private
    */
   this.objectsById_ = [null];
@@ -318,7 +386,7 @@ o3djs.serialization.Deserializer = function(pack, json) {
 /**
  * Get the object with the given id.
  * @param {number} id The id to lookup.
- * @return {Object} The object with the given id.
+ * @return {(Object|undefined)} The object with the given id.
  */
 o3djs.serialization.Deserializer.prototype.getObjectById = function(id) {
   return this.objectsById_[id];
@@ -350,14 +418,15 @@ o3djs.serialization.Deserializer.prototype.deserializeValue = function(
       return null;
     }
 
-    if ('length' in valueJson) {
-      for (var i = 0; i != valueJson.length; ++i) {
-        valueJson[i] = this.deserializeValue(valueJson[i]);
+    var valueAsObject = /** @type {!Object} */ (valueJson);
+    if ('length' in valueAsObject) {
+      for (var i = 0; i != valueAsObject.length; ++i) {
+        valueAsObject[i] = this.deserializeValue(valueAsObject[i]);
       }
-      return valueJson;
+      return valueAsObject;
     }
 
-    var refId = valueJson['ref'];
+    var refId = valueAsObject['ref'];
     if (refId !== undefined) {
       var referenced = this.objectsById_[refId];
       if (referenced === undefined) {
@@ -373,8 +442,8 @@ o3djs.serialization.Deserializer.prototype.deserializeValue = function(
 /**
  * Sets the value of a param on an object or binds a param to another.
  * @param {!Object} object The object holding the param.
- * @param {string} paramName The name of the param.
- * @param {*} propertyJson The JSON representation of the value.
+ * @param {(string|number)} paramName The name of the param.
+ * @param {!Object} propertyJson The JSON representation of the value.
  * @private
  */
 o3djs.serialization.Deserializer.prototype.setParamValue_ = function(
@@ -402,8 +471,8 @@ o3djs.serialization.Deserializer.prototype.setParamValue_ = function(
  * Creates a param on an object and adds it's id so that other objects can
  * reference it.
  * @param {!Object} object The object to hold the param.
- * @param {string} paramName The name of the param.
- * @param {*} propertyJson The JSON representation of the value.
+ * @param {(string|number)} paramName The name of the param.
+ * @param {!Object} propertyJson The JSON representation of the value.
  * @private
  */
 o3djs.serialization.Deserializer.prototype.createAndIdentifyParam_ =
@@ -462,7 +531,8 @@ o3djs.serialization.Deserializer.prototype.createObjectsPhase_ =
           for (var paramIndex = 0; paramIndex != objectJson.params.length;
               ++paramIndex) {
             var paramJson = objectJson.params[paramIndex];
-            this.createAndIdentifyParam_(object, paramIndex, paramJson);
+            this.createAndIdentifyParam_(object, paramIndex,
+                                         paramJson);
           }
         } else {
           for (var paramName in objectJson.params) {
@@ -516,12 +586,16 @@ o3djs.serialization.Deserializer.prototype.setPropertiesPhase_ = function(
           for (var paramIndex = 0; paramIndex != objectJson.params.length;
               ++paramIndex) {
             var paramJson = objectJson.params[paramIndex];
-            this.setParamValue_(object, paramIndex, paramJson);
+            this.setParamValue_(/** @type {!Object} */ (object),
+                                paramIndex,
+                                paramJson);
           }
         } else {
           for (var paramName in objectJson.params) {
             var paramJson = objectJson.params[paramName];
-            this.setParamValue_(object, paramName, paramJson);
+            this.setParamValue_(/** @type {!Object} */ (object),
+                                paramName,
+                                paramJson);
           }
         }
       }
@@ -570,9 +644,9 @@ o3djs.serialization.Deserializer.prototype.run = function(
  * Deserializes (loads) a transform graph in the background. Invokes
  * a callback function on completion passing the pack and the thrown
  * exception on failure or the pack and a null exception on success.
+ * @param {!o3d.Client} client An O3D client object.
  * @param {!o3d.Pack} pack The pack to create the deserialized objects
  *     in.
- * @param {!Object} json An object tree conforming to the JSON rules.
  * @param {number} time The amount of the time (in seconds) the deserializer
  *     should aim to complete in.
  * @param {!function(o3d.Pack, *): void} callback The function that
@@ -580,20 +654,41 @@ o3djs.serialization.Deserializer.prototype.run = function(
  *     the thrown exception on failure.
  */
 o3djs.serialization.Deserializer.prototype.runBackground = function(
-    pack, json, time, callback) {
-  var workToDo = json.objects.length * 2;
+    client, pack, time, callback) {
+  // TODO: This seems like it needs to be more granular than the
+  //    top level.
+  // TODO: Passing in the time you want it to take seems counter
+  //   intuitive. I want pass in a % of CPU so I can effectively say
+  //   "deserialize this in such a way so as not to affect my app's
+  //   performance".  callbacksRequired = numObjects / amountPerCallback where
+  //   amountPerCallback = number I can do per frame and not affect performance
+  //   too much.
+  var workToDo = this.json.objects.length * 2;
   var timerCallbacks = time * 60;
   var amountPerCallback = workToDo / timerCallbacks;
   var intervalId;
+  var that = this;
   function deserializeMore() {
+    var exception = null;
+    var finished = false;
+    var failed = false;
+    var errorCollector = o3djs.error.createErrorCollector(client);
     try {
-      if (!this.run(amountPerCallback)) {
-        window.clearInterval(intervalId);
-        callback(pack, null);
-      }
+      finished = !that.run(amountPerCallback);
     } catch(e) {
+      failed = true;
+      finished = true;
+      exception = e;
+    }
+    if (errorCollector.errors.length > 0) {
+      finished = true;
+      exception = errorCollector.errors.join('\n') +
+                  (exception ? ('\n' + exception.toString()) : '');
+    }
+    errorCollector.finish();
+    if (finished) {
       window.clearInterval(intervalId);
-      callback(pack, e);
+      callback(pack, exception);
     }
   }
 
@@ -629,21 +724,27 @@ o3djs.serialization.deserialize = function(pack, json) {
 /**
  * Deserializes a single json object named 'scene.json' from a loaded
  * o3djs.io.ArchiveInfo.
- * @param {!o3djs.io.archiveInfo} archiveInfo Archive to load from.
+ * @param {!o3djs.io.ArchiveInfo} archiveInfo Archive to load from.
  * @param {string} sceneJsonUri The relative URI of the scene JSON file within
  *     the archive.
+ * @param {!o3d.Client} client An O3D client object.
  * @param {!o3d.Pack} pack The pack to create the deserialized objects
  *     in.
  * @param {!o3d.Transform} parent Transform to parent loaded stuff from.
- * @param {opt_animSource: !o3d.ParamFloat} opt_options Options. opt_animSource
- *     is an optional ParamFloat that will be bound as the source for all
- *     animation in the scene.
+ * @param {!function(!o3d.Pack, !o3d.Transform, *): void} callback A function
+ *     that will be called when deserialization is finished. It will be passed
+ *     the pack, the parent transform, and an exception which will be null on
+ *     success.
+ * @param {!o3djs.serialization.Options} opt_options Options.
  */
 o3djs.serialization.deserializeArchive = function(archiveInfo,
                                                   sceneJsonUri,
+                                                  client,
                                                   pack,
                                                   parent,
+                                                  callback,
                                                   opt_options) {
+  opt_options = opt_options || { };
   var jsonFile = archiveInfo.getFileByURI(sceneJsonUri);
   if (!jsonFile) {
     throw 'Could not find ' + sceneJsonUri + ' in archive';
@@ -653,22 +754,46 @@ o3djs.serialization.deserializeArchive = function(archiveInfo,
 
   deserializer.addObject(parsed.o3d_rootObject_root, parent);
   deserializer.archiveInfo = archiveInfo;
-  deserializer.run();
 
-  var objects = pack.getObjects('o3d.animSourceOwner', 'o3d.ParamObject');
-  if (objects.length > 0) {
-    // Rebind the output connections of the animSource to the user's param.
-    if (opt_options && opt_options.opt_animSource) {
-      var animSource = objects[0].getParam('animSource');
-    objects[0].name = opt_options.opt_animSource.name;
-      var outputConnections = animSource.outputConnections;
-      for (var ii = 0; ii < outputConnections.length; ++ii) {
-        outputConnections[ii].bind(opt_options.opt_animSource);
+  var finishCallback = function(pack, exception) {
+    if (!exception) {
+      var objects = pack.getObjects('o3d.animSourceOwner', 'o3d.ParamObject');
+      if (objects.length > 0) {
+        // Rebind the output connections of the animSource to the user's param.
+        if (opt_options.opt_animSource) {
+          var animSource = objects[0].getParam('animSource');
+          var outputConnections = animSource.outputConnections;
+          for (var ii = 0; ii < outputConnections.length; ++ii) {
+            outputConnections[ii].bind(opt_options.opt_animSource);
+          }
+        }
+        // Remove special object from pack.
+        for (var ii = 0; ii < objects.length; ++ii) {
+          pack.removeObject(objects[ii]);
+        }
       }
     }
-    // Remove special object from pack.
-    for (var ii = 0; ii < objects.length; ++ii) {
-      pack.removeObject(objects[ii]);
+    callback(pack, parent, exception);
+  };
+
+  if (opt_options.opt_async) {
+    // TODO: Remove the 5. See deserializer.runBackground comments.
+    deserializer.runBackground(client, pack, 5, finishCallback);
+  } else {
+    var exception = null;
+    var errorCollector = o3djs.error.createErrorCollector(client);
+    try {
+      deserializer.run();
+    } catch (e) {
+      exception = e;
     }
+    if (errorCollector.errors.length > 0) {
+      exception = errorCollector.errors.join('\n') +
+                  (exception ? ('\n' + exception.toString()) : '');
+    }
+    errorCollector.finish();
+    finishCallback(pack, exception);
   }
 };
+
+

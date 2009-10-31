@@ -29,12 +29,14 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+
 /**
  * @fileoverview This file contains various functions related to effects.
  * It puts them in the "effect" module on the o3djs object.
  *
  *     Note: This library is only a sample. It is not meant to be some official
  *     library. It is provided only as example code.
+ *
  */
 
 o3djs.provide('o3djs.effect');
@@ -46,6 +48,71 @@ o3djs.require('o3djs.io');
  * @namespace
  */
 o3djs.effect = o3djs.effect || {};
+
+/**
+ * The name of standard 2 color checker effect.
+ * @type {string}
+ */
+o3djs.effect.TWO_COLOR_CHECKER_EFFECT_NAME = 
+    'o3djs.effect.twoColorCheckerEffect';
+
+/**
+ * An effect string for a 2 color checker effect.
+ * @type {string}
+ */
+o3djs.effect.TWO_COLOR_CHECKER_FXSTRING = '' +
+    'float4x4 worldViewProjection : WORLDVIEWPROJECTION;\n' +
+    'float4x4 worldInverseTranspose : WORLDINVERSETRANSPOSE;\n' +
+    'float4x4 world : WORLD;\n' +
+    'float4 color1;\n' +
+    'float4 color2;\n' +
+    'float checkSize;\n' +
+    'float3 lightWorldPos;\n' +
+    'float3 lightColor;\n' +
+    '\n' +
+    'struct VertexShaderInput {\n' +
+    '  float4 position : POSITION;\n' +
+    '  float4 normal : NORMAL;\n' +
+    '  float2 texcoord : TEXCOORD0;\n' +
+    '};\n' +
+    '\n' +
+    'struct PixelShaderInput {\n' +
+    '  float4 position : POSITION;\n' +
+    '  float2 texcoord : TEXCOORD0;\n' +
+    '  float3 normal : TEXCOORD1;\n' +
+    '  float3 worldPosition : TEXCOORD2;\n' +
+    '};\n' +
+    '\n' +
+    'float4 checker(float2 uv) {\n' +
+    '  float fmodResult = fmod(floor(checkSize * uv.x) + \n' +
+    '                          floor(checkSize * uv.y), 2.0);\n' +
+    '  return (fmodResult < 1) ? color1 : color2;\n' +
+    '}\n' +
+    '\n' +
+    'PixelShaderInput vertexShaderFunction(VertexShaderInput input) {\n' +
+    '  PixelShaderInput output;\n' +
+    '\n' +
+    '  output.position = mul(input.position, worldViewProjection);\n' +
+    '  output.normal = mul(input.normal, worldInverseTranspose).xyz;\n' +
+    '  output.worldPosition = mul(input.position, world).xyz;\n' +
+    '  output.texcoord = input.texcoord;\n' +
+    '  return output;\n' +
+    '}\n' +
+    '\n' +
+    'float4 pixelShaderFunction(PixelShaderInput input): COLOR {\n' +
+    '  float3 surfaceToLight = \n' +
+    '      normalize(lightWorldPos - input.worldPosition);\n' +
+    '  float3 worldNormal = normalize(input.normal);\n' +
+    '  float4 check = checker(input.texcoord);\n' +
+    '  float4 directionalIntensity = \n' +
+    '      saturate(dot(worldNormal, surfaceToLight));\n' +
+    '  float4 outColor = directionalIntensity * check;\n' +
+    '  return float4(outColor.rgb, check.a);\n' +
+    '}\n' +
+    '\n' +
+    '// #o3d VertexShaderEntryPoint vertexShaderFunction\n' +
+    '// #o3d PixelShaderEntryPoint pixelShaderFunction\n' +
+    '// #o3d MatrixLoadOrder RowMajor\n';
 
 /**
  * The name of the parameter on a material if it's a collada standard
@@ -133,30 +200,36 @@ o3djs.effect.getNumTexCoordStreamsNeeded = function(material) {
  * Loads shader source from an external file and creates shaders for an effect.
  * @param {!o3d.Effect} effect The effect to create the shaders in.
  * @param {string} url The url of the shader source.
- * @param {!function(string): void} opt_callback An callback. If this is
- *     provided the call is asynchronous. If not it is synchronous.
  */
-o3djs.effect.loadEffect = function(effect, url, opt_callback) {
-  var async = opt_callback ? true : false;
-  if (async) {
-    var callback = function(text) {
-      effect.loadFromFXString(text);
-      opt_callback();
-    };
-    o3djs.io.loadTextFileAsynchronous(url, callback);
-  } else {
-    var fxString = o3djs.io.loadTextFileSynchronous(url);
-    effect.loadFromFXString(fxString);
+o3djs.effect.loadEffect = function(effect, url) {
+  var fxString = o3djs.io.loadTextFileSynchronous(url);
+  effect.loadFromFXString(fxString);
+};
+
+/**
+ * Creates an effect from a file.
+ * If the effect already exists in the pack that effect will be returned.
+ * @param {!o3d.Pack} pack Pack to create effect in.
+ * @param {string} url Url for effect file.
+ * @return {!o3d.Effect} The effect.
+ */
+o3djs.effect.createEffectFromFile = function(pack, url) {
+  var effect = pack.getObjects(url, 'o3d.Effect')[0];
+  if (!effect) {
+    effect = pack.createObject('Effect');
+    o3djs.effect.loadEffect(effect, url);
+    effect.name = url;
   }
+  return effect;
 };
 
 /**
  * Builds a shader string for a given standard COLLADA material type.
  *
- * @param {o3d.Material} material Material for which to build the shader.
- * @param {String} effectType Type of effect to create ('phong', 'lambert',
+ * @param {!o3d.Material} material Material for which to build the shader.
+ * @param {string} effectType Type of effect to create ('phong', 'lambert',
  *     'constant').
- * @return {description: string, shader: string} A description and the shader
+ * @return {{description: string, shader: string}} A description and the shader
  *     string.
  */
 o3djs.effect.buildStandardShaderString = function(material,
@@ -295,7 +368,7 @@ o3djs.effect.buildStandardShaderString = function(material,
            buildVertexDecls(material, false, false) +
            'OutVertex vertexShaderFunction(InVertex input) {\n' +
            '  OutVertex output;\n' +
-           '  output.position = mul(input.position, worldViewProjection);\n' +
+           positionVertexShaderCode() +
            buildUVPassthroughs(material) +
            '  return output;\n' +
            '}\n' +
@@ -326,10 +399,9 @@ o3djs.effect.buildStandardShaderString = function(material,
            'OutVertex vertexShaderFunction(InVertex input) {\n' +
            '  OutVertex output;\n' +
            buildUVPassthroughs(material) +
-           '  output.position = mul(input.position, worldViewProjection);\n' +
-           '  output.normal = mul(input.normal, worldInverseTranspose).xyz;\n' +
-           '  output.surfaceToLight = lightWorldPos - \n' +
-           '                          mul(input.position, world).xyz;\n' +
+           positionVertexShaderCode() +
+           normalVertexShaderCode() +
+           surfaceToLightVertexShaderCode() +
            bumpVertexShaderCode() +
            '  return output;\n' +
            '}\n' +
@@ -356,7 +428,7 @@ o3djs.effect.buildStandardShaderString = function(material,
    *     shaders.
    * @param {!Array.<string>} descriptions Array to add descriptions too.
    * @return {string} The effect code for the shader, ready to be parsed.
-   * TODO(gman): This is actually just a copy of the Phong code.
+   * TODO: This is actually just a copy of the Phong code.
    *     Change to Blinn.
    */
   var buildBlinnShaderString = function(material, descriptions) {
@@ -369,16 +441,15 @@ o3djs.effect.buildStandardShaderString = function(material,
         buildColorParam(material, descriptions, 'specular') +
         buildColorParam(material, descriptions, 'bump', false) +
         'uniform float shininess;\n' +
+        'uniform float specularFactor;\n' +
         buildVertexDecls(material, true, true) +
         'OutVertex vertexShaderFunction(InVertex input) {\n' +
         '  OutVertex output;\n' +
-        '  output.position = mul(input.position, worldViewProjection);\n' +
         buildUVPassthroughs(material) +
-        '  output.normal = mul(input.normal, worldInverseTranspose).xyz;\n' +
-        '  output.surfaceToLight = lightWorldPos - \n' +
-        '                          mul(input.position, world).xyz;\n' +
-        '  output.surfaceToView = (viewInverse[3] - mul(input.position,\n' +
-        '                                               world)).xyz;\n' +
+        positionVertexShaderCode() +
+        normalVertexShaderCode() +
+        surfaceToLightVertexShaderCode() +
+        surfaceToViewVertexShaderCode() +
         bumpVertexShaderCode() +
         '  return output;\n' +
         '}\n' +
@@ -396,7 +467,7 @@ o3djs.effect.buildStandardShaderString = function(material,
         '                    dot(normal, halfVector), shininess);\n' +
         '  return float4((emissive +\n' +
         '  lightColor * (ambient * diffuse + diffuse * litR.y +\n' +
-        '                        + specular * litR.z)).rgb,' +
+        '                        + specular * litR.z * specularFactor)).rgb,' +
         '      diffuse.a);\n' +
         '}\n' +
         '\n' +
@@ -420,16 +491,15 @@ o3djs.effect.buildStandardShaderString = function(material,
         buildColorParam(material, descriptions, 'specular') +
         buildColorParam(material, descriptions, 'bump', false) +
         'uniform float shininess;\n' +
+        'uniform float specularFactor;\n' +
         buildVertexDecls(material, true, true) +
         'OutVertex vertexShaderFunction(InVertex input) {\n' +
         '  OutVertex output;\n' +
-        '  output.position = mul(input.position, worldViewProjection);\n' +
         buildUVPassthroughs(material) +
-        '  output.normal = mul(input.normal, worldInverseTranspose).xyz;\n' +
-        '  output.surfaceToLight = lightWorldPos - \n' +
-        '                          mul(input.position, world).xyz;\n' +
-        '  output.surfaceToView = (viewInverse[3] - mul(input.position,\n' +
-        '                                               world)).xyz;\n' +
+        positionVertexShaderCode() +
+        normalVertexShaderCode() +
+        surfaceToLightVertexShaderCode() +
+        surfaceToViewVertexShaderCode() +
         bumpVertexShaderCode() +
         '  return output;\n' +
         '}\n' +
@@ -447,7 +517,7 @@ o3djs.effect.buildStandardShaderString = function(material,
         '                    dot(normal, halfVector), shininess);\n' +
         '  return float4((emissive +\n' +
         '  lightColor * (ambient * diffuse + diffuse * litR.y +\n' +
-        '                        + specular * litR.z)).rgb,' +
+        '                        + specular * litR.z * specularFactor)).rgb,' +
         '      diffuse.a);\n' +
         '}\n' +
         '\n' +
@@ -543,15 +613,50 @@ o3djs.effect.buildStandardShaderString = function(material,
   };
 
   /**
+   * Builds the position code for the vertex shader.
+   * @return {string} The code for the vertex shader.
+   */
+  var positionVertexShaderCode = function() {
+    return '  output.position = mul(input.position, worldViewProjection);\n';
+  };
+
+  /**
+   * Builds the normal code for the vertex shader.
+   * @return {string} The code for the vertex shader.
+   */
+  var normalVertexShaderCode = function() {
+    return '  output.normal = mul(float4(input.normal, 0),\n' +
+           '                      worldInverseTranspose).xyz;\n';
+  };
+
+  /**
+   * Builds the surface to light code for the vertex shader.
+   * @return {string} The code for the vertex shader.
+   */
+  var surfaceToLightVertexShaderCode = function() {
+    return '  output.surfaceToLight = lightWorldPos - \n' +
+           '                          mul(input.position, world).xyz;\n';
+  };
+
+  /**
+   * Builds the surface to view code for the vertex shader.
+   * @return {string} The code for the vertex shader.
+   */
+  var surfaceToViewVertexShaderCode = function() {
+    return '  output.surfaceToView = (viewInverse[3] - mul(input.position,\n' +
+           '                                               world)).xyz;\n';
+  };
+
+  /**
    * Builds the normal map part of the vertex shader.
    * @return {string} The code for normal mapping in the vertex shader.
    */
   var bumpVertexShaderCode = function() {
     return bumpSampler ?
         ('  output.binormal = ' +
-         'mul(input.binormal, worldInverseTranspose).xyz;\n' +
+         'mul(float4(input.binormal, 0), worldInverseTranspose).xyz;\n' +
          '  output.tangent = ' +
-         'mul(input.tangent, worldInverseTranspose).xyz;\n') : '';
+         'mul(float4(input.tangent, 0), worldInverseTranspose).xyz;\n') : '';
   };
 
   /**
@@ -573,20 +678,24 @@ o3djs.effect.buildStandardShaderString = function(material,
   /**
    * Builds the vertex declarations for a given material.
    * @param {!o3d.Material} material The material to inspect.
-   * @param {ambient} Whether to include ambient interpol
+   * @param {boolean} diffuse Whether to include stuff for diffuse calculations.
+   * @param {boolean} specular Whether to include stuff for diffuse
+   *     calculations.
    * @return {string} The code for the vertex declarations.
    */
   var buildVertexDecls = function(material, diffuse, specular) {
     var str = 'struct InVertex {\n' +
-              '  float4 position     : POSITION;\n' +
-              '  float4 normal       : NORMAL;\n' +
-              buildTexCoords(material) +
-              buildBumpInputCoords() +
-              '};\n' +
-              'struct OutVertex {\n' +
-              '  float4 position     : POSITION;\n' +
-              buildTexCoords(material) +
-              buildBumpOutputCoords();
+              '  float4 position     : POSITION;\n';
+    if (diffuse || specular) {
+      str += '  float3 normal       : NORMAL;\n';
+    }
+    str += buildTexCoords(material) +
+           buildBumpInputCoords() +
+           '};\n' +
+           'struct OutVertex {\n' +
+           '  float4 position     : POSITION;\n' +
+           buildTexCoords(material) +
+           buildBumpOutputCoords();
     if (diffuse || specular) {
       str += '  float3 normal        : TEXCOORD' + interpolant++ + ';\n' +
              '  float3 surfaceToLight: TEXCOORD' + interpolant++ + ';\n';
@@ -625,7 +734,7 @@ o3djs.effect.buildStandardShaderString = function(material,
  *
  * @param {!o3d.Pack} pack Pack in which to create the new Effect.
  * @param {!o3d.Material} material Material for which to build the shader.
- * @param {String} effectType Type of effect to create ('phong', 'lambert',
+ * @param {string} effectType Type of effect to create ('phong', 'lambert',
  *     'constant').
  * @return {o3d.Effect} The created effect.
  */
@@ -658,34 +767,89 @@ o3djs.effect.getStandardShader = function(pack,
  * Looks at the material passed in and assigns it an Effect that matches its
  * Params. If a suitable Effect already exists in pack it will use that Effect.
  *
- * @param {o3d.Pack} pack Pack in which to create the new Effect.
- * @param {o3d.Material} material Material for which to build the shader.
- * @param {!Array.<number>} lightPos Position of the default light.
- * @param {String} effectType Type of effect to create ('phong', 'lambert',
+ * @param {!o3d.Pack} pack Pack in which to create the new Effect.
+ * @param {!o3d.Material} material Material for which to build the shader.
+ * @param {!o3djs.math.Vector3} lightPos Position of the default light.
+ * @param {string} effectType Type of effect to create ('phong', 'lambert',
  *     'constant').
- * @return {bool} True on success.
+ * @return {boolean} True on success.
  */
-o3djs.effect.attachStandardShader =
-  function(pack, material, lightPos, effectType) {
-    var effect = o3djs.effect.getStandardShader(pack, material, effectType);
-    if (effect) {
-      material.effect = effect;
-      effect.createUniformParameters(material);
+o3djs.effect.attachStandardShader = function(pack,
+                                             material,
+                                             lightPos,
+                                             effectType) {
+  var effect = o3djs.effect.getStandardShader(pack,
+                                              material,
+                                              effectType);
+  if (effect) {
+    material.effect = effect;
+    effect.createUniformParameters(material);
 
-      // Set a couple of the default parameters in the hopes that this will
-      // help the user get something on the screen. We check to make sure they
-      // are not connected to something otherwise we'll get an error.
-      var param = material.getParam('lightWorldPos');
-      if (!param.inputConnection) {
-        param.value = [-0.4,0.8,1.4]; //[0,0,0]
-      }
-      var param = material.getParam('lightColor');
-      if (!param.inputConnection) {
-        param.value = [1, 1, 1, 1];
-      }
-    return true;
-    } else {
-    return false;
+    // Set a couple of the default parameters in the hopes that this will
+    // help the user get something on the screen. We check to make sure they
+    // are not connected to something otherwise we'll get an error.
+    var param = material.getParam('lightWorldPos');
+    if (!param.inputConnection) {
+      param.value = lightPos;
     }
-  };
+    var param = material.getParam('lightColor');
+    if (!param.inputConnection) {
+      param.value = [1, 1, 1, 1];
+    }
+    return true;
+  } else {
+    return false;
+  }
+};
 
+/**
+ * Creates the uniform parameters needed for an Effect on the given ParamObject.
+ * @param {!o3d.Pack} pack Pack to create extra objects in like Samplers and
+ *     ParamArrays.
+ * @param {!o3d.Effect} effect Effect.
+ * @param {!o3d.ParamObject} paramObject ParamObject on which to create Params.
+ */
+o3djs.effect.createUniformParameters = function(pack, effect, paramObject) {
+  effect.createUniformParameters(paramObject);
+  var infos = effect.getParameterInfo();
+  for (var ii = 0; ii < infos.length; ++ii) {
+    var info = infos[ii];
+    if (info.sasClassName.length == 0) {
+      if (info.numElements > 0) {
+        var paramArray = pack.createObject('ParamArray');
+        var param = paramObject.getParam(info.name);
+        param.value = paramArray;
+        paramArray.resize(info.numElements, info.className);
+        if (info.className == 'o3d.ParamSampler') {
+          for (var jj = 0; jj < info.numElements; ++jj) {
+            var sampler = pack.createObject('Sampler');
+            paramArray.getParam(jj).value = sampler;
+          }
+        }
+      } else if (info.className == 'o3d.ParamSampler') {
+        var sampler = pack.createObject('Sampler');
+        var param = paramObject.getParam(info.name);
+        param.value = sampler;
+      }
+    }
+  }
+};
+
+/**
+ * Creates an effect that draws a 2 color procedural checker pattern.
+ * @param {!o3d.Pack} pack The pack to create the effect in. If the pack
+ *     already has an effect with the same name that effect will be returned.
+ * @return {!o3d.Effect} The effect.
+ */
+o3djs.effect.createCheckerEffect = function(pack) {
+  var effects = pack.getObjects(o3djs.effect.TWO_COLOR_CHECKER_EFFECT_NAME,
+                                'o3d.Effect');
+  if (effects.length > 0) {
+    return effects[0];
+  }
+
+  var effect = pack.createObject('Effect');
+  effect.loadFromFXString(o3djs.effect.TWO_COLOR_CHECKER_FXSTRING);
+  effect.name = o3djs.effect.TWO_COLOR_CHECKER_EFFECT_NAME;
+  return effect;
+};

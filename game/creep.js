@@ -320,7 +320,7 @@ function Creep() {
       var d = this.drawings[idx];
       d.rotZ.localMatrix = math.matrix4.rotationZ(this.theta);
     }
-    var t = math.mul([this.length / 2, 0, 0, 1],
+    var t = math.mulVectorMatrix([this.length / 2, 0, 0, 1],
         math.matrix4.rotationZ(this.theta));
     // Where should folks who want to shoot us aim?
     this.targetDI = t[0];
@@ -808,15 +808,16 @@ function Creep() {
       d.rotY.localMatrix = math.matrix4.rotationY(this.phi);
     }
 
-    var m = math.mul(math.matrix4.rotationZ(this.theta),
+    var m = math.matrix4.mul(math.matrix4.rotationZ(this.theta),
                      math.matrix4.rotationY(this.phi));
-    var t = math.mul([this.length / 2, 0, this.height / 2, 1], m);
+    var t = math.mulVectorMatrix([this.length / 2, 0, this.height / 2, 1], m);
 
     // Where should folks who want to shoot us aim?
     this.targetDI = t[0];
     this.targetDJ = t[1];
     this.targetDK = t[2];
-    t = math.mul([this.length,
+    t = math.mulVectorMatrix([
+                  this.length,
                   0,
                   this.height / 2 - O3D_TD_CREEP_DEPTH / 15,
                   1], m);

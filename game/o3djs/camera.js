@@ -29,12 +29,14 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+
 /**
  * @fileoverview This file contains various camera utility functions for
  * o3d.  It puts them in the "camera" module on the o3djs object.
  *
  *     Note: This library is only a sample. It is not meant to be some official
  *     library. It is provided only as example code.
+ *
  */
 
 o3djs.provide('o3djs.camera');
@@ -165,14 +167,14 @@ o3djs.camera.CameraInfo.prototype.computeProjection = function(
     areaWidth,
     areaHeight) {
   if (this.orthographic) {
-    // TODO(gman): figure out if there is a way to make this take the areaWidth
+    // TODO: figure out if there is a way to make this take the areaWidth
     //     and areaHeight into account. As it is, magX and magY from the
     //     collada file are relative to the aspect ratio of Maya's render
     //     settings which are not available here.
     // var magX = areaWidth * 0.5 / this.magX;
     // var magY = areaHeight * 0.5 / this.magY;
-    var magX = this.magX;
-    var magY = this.magY;
+    var magX = /** @type {number} */ (this.magX);
+    var magY = /** @type {number} */ (this.magY);
     this.projection = o3djs.math.matrix4.orthographic(
         -magX, magX, -magY, magY, this.zNear, this.zFar);
   } else {
@@ -273,12 +275,12 @@ o3djs.camera.getCameraFitToScene = function(treeRoot,
                                             clientHeight) {
   var math = o3djs.math;
   var box = o3djs.util.getBoundingBoxOfTree(treeRoot);
-  var target = math.lerp(box.minExtent, box.maxExtent, 0.5);
-  var boxDimensions = math.sub(box.maxExtent, box.minExtent);
+  var target = math.lerpVector(box.minExtent, box.maxExtent, 0.5);
+  var boxDimensions = math.subVector(box.maxExtent, box.minExtent);
   var diag = o3djs.math.distance(box.minExtent, box.maxExtent);
-  var eye = math.add(target, [boxDimensions[0] * 0.3,
-                              boxDimensions[1] * 0.7,
-                              diag * 1.5]);
+  var eye = math.addVector(target, [boxDimensions[0] * 0.3,
+                                    boxDimensions[1] * 0.7,
+                                    diag * 1.5]);
   var nearPlane = diag / 1000;
   var farPlane = diag * 10;
 

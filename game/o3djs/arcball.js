@@ -28,6 +28,7 @@
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
+
 // A shout out to Terrance J. Grant at tatewake.com for his tutorial on arcball
 // implementations.
 
@@ -73,10 +74,33 @@ o3djs.arcball.create = function(areaWidth, areaHeight) {
  * @see o3djs.arcball
  */
 o3djs.arcball.ArcBall = function(areaWidth, areaHeight) {
-  this.startVector = [0, 0, 0];
-  this.endVector = [0, 0, 0];
-  this.areaWidth = areaWidth;
-  this.areaHeight = areaHeight;
+  /**
+   * The start vector.
+   * @private
+   * @type {!o3djs.math.Vector3}
+   */
+  this.startVector_ = [0, 0, 0];
+
+  /**
+   * The end vector.
+   * @private
+   * @type {!o3djs.math.Vector3}
+   */
+  this.endVector_ = [0, 0, 0];
+
+  /**
+   * The width of the arcBall area.
+   * @private
+   * @type {number}
+   */
+  this.areaWidth_ = areaWidth;
+
+  /**
+   * The height of the arcBall area.
+   * @private
+   * @type {number}
+   */
+  this.areaHeight_ = areaHeight;
 };
 
 
@@ -86,8 +110,8 @@ o3djs.arcball.ArcBall = function(areaWidth, areaHeight) {
  * @param {number} areaHeight height of area arcball should cover.
  */
 o3djs.arcball.ArcBall.prototype.setAreaSize = function(areaWidth, areaHeight) {
-  this.areaWidth = areaWidth;
-  this.areaHeight = areaHeight;
+  this.areaWidth_ = areaWidth;
+  this.areaHeight_ = areaHeight;
 };
 
 /**
@@ -97,20 +121,22 @@ o3djs.arcball.ArcBall.prototype.setAreaSize = function(areaWidth, areaHeight) {
  */
 o3djs.arcball.ArcBall.prototype.mapToSphere = function(newPoint) {
   // Copy parameter into temp
-  var tempPoint = o3djs.math.copy(newPoint);
+  var tempPoint = o3djs.math.copyVector(newPoint);
 
   // Scale to -1.0 <-> 1.0
-  tempPoint[0] = tempPoint[0] / this.areaWidth * 2.0 - 1.0;
-  tempPoint[1] = 1.0 - tempPoint[1] / this.areaHeight * 2.0;
+  tempPoint[0] = tempPoint[0] / this.areaWidth_ * 2.0 - 1.0;
+  tempPoint[1] = 1.0 - tempPoint[1] / this.areaHeight_ * 2.0;
 
   // Compute square of length from center
   var lengthSquared = o3djs.math.lengthSquared(tempPoint);
 
   // If the point is mapped outside of the sphere... (length > radius squared)
-  if (lengthSquared > 1.0)
+  if (lengthSquared > 1.0) {
     return o3djs.math.normalize(tempPoint).concat(0);
-  else   // Otherwise it's on the inside.
-    return tempPoint.concat(Math.sqrt(1.0 - length));
+  } else {
+    // Otherwise it's on the inside.
+    return tempPoint.concat(Math.sqrt(1.0 - lengthSquared));
+  }
 };
 
 /**
@@ -118,7 +144,7 @@ o3djs.arcball.ArcBall.prototype.mapToSphere = function(newPoint) {
  * @param {!o3djs.math.Vector2} newPoint point in 2d.
  */
 o3djs.arcball.ArcBall.prototype.click = function(newPoint) {
-  this.startVector = this.mapToSphere(newPoint);
+  this.startVector_ = this.mapToSphere(newPoint);
 };
 
 /**
@@ -129,8 +155,8 @@ o3djs.arcball.ArcBall.prototype.click = function(newPoint) {
  *     orientation.
  */
 o3djs.arcball.ArcBall.prototype.drag = function(newPoint) {
-  this.endVector = this.mapToSphere(newPoint);
+  this.endVector_ = this.mapToSphere(newPoint);
 
-  return [o3djs.math.dot(this.startVector, this.endVector)].concat(
-      o3djs.math.cross(this.startVector, this.endVector));
+  return o3djs.math.cross(this.startVector_, this.endVector_).concat(
+      o3djs.math.dot(this.startVector_, this.endVector_));
 };

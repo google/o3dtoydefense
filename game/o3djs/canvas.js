@@ -29,6 +29,7 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+
 /**
  * @fileoverview This file contains a basic utility library that simplifies the
  * creation of simple 2D Canvas surfaces for the purposes of drawing 2D elements
@@ -91,7 +92,7 @@ o3djs.require('o3djs.primitives');
 o3djs.canvas = o3djs.canvas || {};
 
 /**
- * Creates a o3djs.canvas library object through which CanvasQuad objects
+ * Creates an o3djs.canvas library object through which CanvasQuad objects
  * can be created.
  * @param {!o3d.Pack} pack to manage objects created by this library.
  * @param {!o3d.Transform} root Default root for visual objects.
@@ -166,34 +167,47 @@ o3djs.canvas.CanvasInfo = function(pack, root, viewInfo) {
    */
   this.root = root;
 
-  // Create the Effect object shared by all CanvasQuad instances.
-  this.effect = this.pack.createObject('Effect');
-  this.effect.loadFromFXString(o3djs.canvas.FX_STRING);
+  /**
+   * The Effect object shared by all CanvasQuad instances.
+   * @type {!o3d.Effect}
+   */
+  this.effect_ = this.pack.createObject('Effect');
+  this.effect_.loadFromFXString(o3djs.canvas.FX_STRING);
 
-  // Create two materials:  One used for canvases with transparent content
-  // and one for opaque canvases.
-  this.transparentMaterial = this.pack.createObject('Material');
-  this.opaqueMaterial = this.pack.createObject('Material');
+  /**
+   * Material for canvases with transparent content
+   * @type {!o3d.Material}
+   */
+  this.transparentMaterial_ = this.pack.createObject('Material');
 
-  this.transparentMaterial.effect = this.effect;
-  this.opaqueMaterial.effect = this.effect;
+  /**
+   * Material for canvases with opaque content.
+   * @type {!o3d.Material}
+   */
+  this.opaqueMaterial_ = this.pack.createObject('Material');
 
-  this.transparentMaterial.drawList = viewInfo.zOrderedDrawList;
-  this.opaqueMaterial.drawList = viewInfo.performanceDrawList;
+  this.transparentMaterial_.effect = this.effect_;
+  this.opaqueMaterial_.effect = this.effect_;
 
-  // Create a state object to handle the transparency blending mode
-  // for transparent canvas quads.
-  // The canvas bitmap already multiplies the color values by alpha.  In order
-  // to avoid a black halo around text drawn on a transparent background we
-  // need to set the blending mode as follows.
-  this.transparentState = this.pack.createObject('State');
-  this.transparentState.getStateParam('AlphaBlendEnable').value = true;
-  this.transparentState.getStateParam('SourceBlendFunction').value =
+  this.transparentMaterial_.drawList = viewInfo.zOrderedDrawList;
+  this.opaqueMaterial_.drawList = viewInfo.performanceDrawList;
+
+  /**
+   * State object to handle the transparency blending mode
+   * for transparent canvas quads.
+   * The canvas bitmap already multiplies the color values by alpha.  In order
+   * to avoid a black halo around text drawn on a transparent background we
+   * need to set the blending mode as follows.
+   * @type {!o3d.State}
+   */
+  this.transparentState_ = this.pack.createObject('State');
+  this.transparentState_.getStateParam('AlphaBlendEnable').value = true;
+  this.transparentState_.getStateParam('SourceBlendFunction').value =
       o3djs.base.o3d.State.BLENDFUNC_ONE;
-  this.transparentState.getStateParam('DestinationBlendFunction').value =
+  this.transparentState_.getStateParam('DestinationBlendFunction').value =
       o3djs.base.o3d.State.BLENDFUNC_INVERSE_SOURCE_ALPHA;
 
-  this.transparentMaterial.state = this.transparentState;
+  this.transparentMaterial_.state = this.transparentState_;
 
   // Create 2d plane shapes. createPlane makes an XZ plane by default
   // so we pass in matrix to rotate it to an XY plane. We could do
@@ -205,7 +219,7 @@ o3djs.canvas.CanvasInfo = function(pack, root, viewInfo) {
    */
   this.transparentQuadShape = o3djs.primitives.createPlane(
       this.pack,
-      this.transparentMaterial,
+      this.transparentMaterial_,
       1,
       1,
       1,
@@ -221,7 +235,7 @@ o3djs.canvas.CanvasInfo = function(pack, root, viewInfo) {
    */
   this.opaqueQuadShape = o3djs.primitives.createPlane(
       this.pack,
-      this.opaqueMaterial,
+      this.opaqueMaterial_,
       1,
       1,
       1,
@@ -260,6 +274,10 @@ o3djs.canvas.CanvasQuad = function(canvasInfo,
                                    height,
                                    transparent,
                                    opt_parent) {
+  /**
+   * The CanvasInfo managing this CanvasQuad
+   * @type {!o3djs.canvas.CanvasInfo}
+   */
   this.canvasInfo = canvasInfo;
   var parentTransform = opt_parent || canvasInfo.root;
 
@@ -284,13 +302,16 @@ o3djs.canvas.CanvasQuad = function(canvasInfo,
   this.scaleTransform = canvasInfo.pack.createObject('Transform');
   this.scaleTransform.parent = this.transform;
 
-  // create the texture the canvas will draw on.
-  this.texture = canvasInfo.pack.createTexture2D(
+  /**
+   * The texture the canvas will draw on.
+   * @type {!o3d.Texture2D}
+   */
+  this.texture = /** @type {!o3d.Texture2D} */ (canvasInfo.pack.createTexture2D(
       width,
       height,
       o3djs.base.o3d.Texture.ARGB8,
       1, // mipmap levels
-      false);
+      false));
 
   // Create a Canvas object to go with the quad.
 
@@ -301,13 +322,22 @@ o3djs.canvas.CanvasQuad = function(canvasInfo,
   this.canvas = canvasInfo.pack.createObject('Canvas');
   this.canvas.setSize(width, height);
 
-  // setup the sampler for the texture
+  /**
+   * The sampler for the texture.
+   * @type {!o3d.Sampler}
+   */
   this.sampler = canvasInfo.pack.createObject('Sampler');
   this.sampler.addressModeU = o3djs.base.o3d.Sampler.CLAMP;
   this.sampler.addressModeV = o3djs.base.o3d.Sampler.CLAMP;
-  this.paramSampler = this.scaleTransform.createParam('texSampler0',
-                                                      'ParamSampler');
-  this.paramSampler.value = this.sampler;
+
+  /**
+   * The param sampler for this transform.
+   * @private
+   * @type {!o3d.ParamSampler}
+   */
+  this.paramSampler_ = this.scaleTransform.createParam('texSampler0',
+                                                       'ParamSampler');
+  this.paramSampler_.value = this.sampler;
 
   this.sampler.texture = this.texture;
   if (transparent) {
@@ -325,7 +355,10 @@ o3djs.canvas.CanvasQuad = function(canvasInfo,
  * been issued to the CanvasQuad's Canvas object.
  */
 o3djs.canvas.CanvasQuad.prototype.updateTexture = function() {
-  this.canvas.copyToTexture(this.texture);
+  var width = this.texture.width;
+  var height = this.texture.height;
+  this.texture.drawImage(this.canvas, 0, height - 1, width, -height,
+                         0, 0, 0, width, height);
 };
 
 /**
@@ -372,13 +405,14 @@ o3djs.canvas.CanvasInfo.prototype.createXYQuad = function(topX,
  * @param {!o3d.Transform} opt_parent parent transform to parent the newly
  *     created quad under.  If no parent transform is provided then the quad
  *     gets parented under the CanvasInfo's root.
- * @return {CanvasQuad} The newly created CanvasQuad object.
+ * @return {!o3djs.canvas.CanvasQuad} The newly created CanvasQuad object.
  */
 o3djs.canvas.CanvasInfo.prototype.createQuad = function(width,
                                                         height,
                                                         transparent,
                                                         opt_parent) {
-  return new o3djs.canvas.CanvasQuad(width,
+  return new o3djs.canvas.CanvasQuad(this,
+                                     width,
                                      height,
                                      transparent,
                                      opt_parent);

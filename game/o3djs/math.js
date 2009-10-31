@@ -29,6 +29,7 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+
 /**
  * @fileoverview This file contains matrix/vector math functions.
  * It adds them to the "math" module on the o3djs object.
@@ -95,6 +96,7 @@
  * mean all sample code will work even if a line is added which switches major
  * modes, but it does mean that calls to o3djs still do what they are supposed
  * to.
+ *
  */
 
 o3djs.provide('o3djs.math');
@@ -106,61 +108,50 @@ o3djs.provide('o3djs.math');
 o3djs.math = o3djs.math || {};
 
 /**
+ * A random seed for the pseudoRandom function.
+ * @private
+ * @type {number}
+ */
+o3djs.math.randomSeed_ = 0;
+
+/**
+ * A constant for the pseudoRandom function
+ * @private
+ * @type {number}
+ */
+o3djs.math.RANDOM_RANGE_ = Math.pow(2, 32);
+
+/**
  * Functions which deal with 4-by-4 transformation matrices are kept in their
  * own namespsace.
+ * @namespace
  */
 o3djs.math.matrix4 = o3djs.math.matrix4 || {};
 
 /**
  * Functions that are specifically row major are kept in their own namespace.
+ * @namespace
  */
 o3djs.math.rowMajor = o3djs.math.rowMajor || {};
 
 /**
  * Functions that are specifically column major are kept in their own namespace.
+ * @namespace
  */
 o3djs.math.columnMajor = o3djs.math.columnMajor || {};
 
 /**
  * Functions that do error checking are stored in their own namespace.
+ * @namespace
  */
 o3djs.math.errorCheck = o3djs.math.errorCheck || {};
 
 /**
  * Functions that do no error checking and have a separate version that does in
  * o3djs.math.errorCheck are stored in their own namespace.
- */
-o3djs.math.errorCheckFree = o3djs.math.errorCheckFree || {};
-
-/**
- * A namespace for o3d plugin types.
  * @namespace
  */
-var o3d = o3d || { };
-
-/**
- * An Array of 2 floats
- * @type {!Array.<number>}
- */
-o3d.Float2 = goog.typedef;
-
-/**
- * An Array of 3 floats
- * @type {!Array.<number>}
- */
-o3d.Float3 = goog.typedef;
-
-/**
- * An Array of 4 floats
- * @type {!Array.<number>}
- */
-o3d.Float4 = goog.typedef;
-
-/**
- * A 4x4 Matrix of floats
- * @type {!Array.<!Array.<number>>}
- */
-o3d.Matrix4 = goog.typedef;
+o3djs.math.errorCheckFree = o3djs.math.errorCheckFree || {};
 
 /**
  * An Array of 2 floats
@@ -217,19 +208,21 @@ o3djs.math.Matrix4 = goog.typedef;
 o3djs.math.Matrix = goog.typedef;
 
 /**
- * Quickly determines if the object a is of scalar, vector or matrix type;
- * assumes that the argument is either a number (scalar), an array of
- * numbers (vector), or an array of arrays of numbers (matrix).
- * @param {Object} a A number or array the type of which is in question.
- * @return {string} Either the string 'Scalar', 'Vector', or 'Matrix'.
+ * Returns a deterministic pseudorandom number between 0 and 1
+ * @return {number} a random number between 0 and 1
  */
-o3djs.math.mathType = function(a) {
-  if (typeof(a) === 'number')
-    return 'Scalar';
-  if (typeof(a[0]) === 'number')
-    return 'Vector';
-  else
-    return 'Matrix';
+o3djs.math.pseudoRandom = function() {
+  var math = o3djs.math;
+  return (math.randomSeed_ =
+          (134775813 * math.randomSeed_ + 1) %
+          math.RANDOM_RANGE_) / math.RANDOM_RANGE_;
+};
+
+/**
+ * Resets the pseudoRandom function sequence.
+ */
+o3djs.math.resetPseudoRandom = function() {
+  o3djs.math.randomSeed_ = 0;
 };
 
 /**
@@ -306,6 +299,62 @@ o3djs.math.lerpVector = function(a, b, t) {
   for (var i = 0; i < aLength; ++i)
     r[i] = (1 - t) * a[i] + t * b[i];
   return r;
+};
+
+/**
+ * Clamps a value between 0 and range using a modulo.
+ * @param {number} v Value to clamp mod.
+ * @param {number} range Range to clamp to.
+ * @param {number} opt_rangeStart start of range. Default = 0.
+ * @return {number} Clamp modded value.
+ */
+o3djs.math.modClamp = function(v, range, opt_rangeStart) {
+  var start = opt_rangeStart || 0;
+  if (range < 0.00001) {
+    return start;
+  }
+  v -= start;
+  if (v < 0) {
+    v -= Math.floor(v / range) * range;
+  } else {
+    v = v % range;
+  }
+  return v + start;
+};
+
+/**
+ * Lerps in a circle.
+ * Does a lerp between a and b but inside range so for example if
+ * range is 100, a is 95 and b is 5 lerping will go in the positive direction.
+ * @param {number} a Start value.
+ * @param {number} b Target value.
+ * @param {number} t Amount to lerp (0 to 1).
+ * @param {number} range Range of circle.
+ * @return {number} lerped result.
+ */
+o3djs.math.lerpCircular = function(a, b, t, range) {
+  a = o3djs.math.modClamp(a, range);
+  b = o3djs.math.modClamp(b, range);
+  var delta = b - a;
+  if (Math.abs(delta) > range * 0.5) {
+    if (delta > 0) {
+      b -= range;
+    } else {
+      b += range;
+    }
+  }
+  return o3djs.math.modClamp(o3djs.math.lerpScalar(a, b, t), range);
+};
+
+/**
+ * Lerps radians.
+ * @param {number} a Start value.
+ * @param {number} b Target value.
+ * @param {number} t Amount to lerp (0 to 1).
+ * @return {number} lerped result.
+ */
+o3djs.math.lerpRadian = function(a, b, t) {
+  return o3djs.math.lerpCircular(a, b, t, Math.PI * 2);
 };
 
 /**
@@ -554,7 +603,7 @@ o3djs.math.negativeMatrix = function(m) {
 /**
  * Copies a scalar.
  * @param {number} a The scalar.
- * @return {number} -a.
+ * @return {number} a.
  */
 o3djs.math.copyScalar = function(a) {
   return a;
@@ -563,7 +612,7 @@ o3djs.math.copyScalar = function(a) {
 /**
  * Copies a vector.
  * @param {!o3djs.math.Vector} v The vector.
- * @return {!o3djs.math.Vector} -v.
+ * @return {!o3djs.math.Vector} A copy of v.
  */
 o3djs.math.copyVector = function(v) {
   var r = [];
@@ -575,7 +624,7 @@ o3djs.math.copyVector = function(v) {
 /**
  * Copies a matrix.
  * @param {!o3djs.math.Matrix} m The matrix.
- * @return {!o3djs.math.Matrix} -m.
+ * @return {!o3djs.math.Matrix} A copy of m.
  */
 o3djs.math.copyMatrix = function(m) {
   var r = [];
@@ -584,6 +633,25 @@ o3djs.math.copyMatrix = function(m) {
     r[i] = [];
     for (var j = 0; j < m[i].length; j++) {
       r[i][j] = m[i][j];
+    }
+  }
+  return r;
+};
+
+/**
+ * Returns the elements of a matrix as a one-dimensional array. The
+ * rows or columns (depending on whether the matrix is row-major or
+ * column-major) are concatenated.
+ * @param {!o3djs.math.Matrix} m The matrix.
+ * @return {!Array.<number>} The matrix's elements as a one-dimensional array.
+ */
+o3djs.math.getMatrixElements = function(m) {
+  var r = [];
+  var mLength = m.length;
+  var k = 0;
+  for (var i = 0; i < mLength; i++) {
+    for (var j = 0; j < m[i].length; j++) {
+      r[k++] = m[i][j];
     }
   }
   return r;
@@ -680,7 +748,7 @@ o3djs.math.divVectorVector = function(a, b) {
   var r = [];
   var aLength = a.length;
   for (var i = 0; i < aLength; ++i)
-    r[i] = a[i] * b[i];
+    r[i] = a[i] / b[i];
   return r;
 };
 
@@ -1373,214 +1441,32 @@ o3djs.math.inverse4 = function(m) {
 
   var d = 1.0 / (m[0][0] * t0 + m[1][0] * t1 + m[2][0] * t2 + m[3][0] * t3);
 
-  return [[d * t0, d * t1, d * t2, d * t3],
-      [d * ((tmp_1 * m[1][0] + tmp_2 * m[2][0] + tmp_5 * m[3][0]) -
+  var row0 = [d * t0, d * t1, d * t2, d * t3];
+  var row1 = [d * ((tmp_1 * m[1][0] + tmp_2 * m[2][0] + tmp_5 * m[3][0]) -
           (tmp_0 * m[1][0] + tmp_3 * m[2][0] + tmp_4 * m[3][0])),
        d * ((tmp_0 * m[0][0] + tmp_7 * m[2][0] + tmp_8 * m[3][0]) -
           (tmp_1 * m[0][0] + tmp_6 * m[2][0] + tmp_9 * m[3][0])),
        d * ((tmp_3 * m[0][0] + tmp_6 * m[1][0] + tmp_11 * m[3][0]) -
           (tmp_2 * m[0][0] + tmp_7 * m[1][0] + tmp_10 * m[3][0])),
        d * ((tmp_4 * m[0][0] + tmp_9 * m[1][0] + tmp_10 * m[2][0]) -
-          (tmp_5 * m[0][0] + tmp_8 * m[1][0] + tmp_11 * m[2][0]))],
-      [d * ((tmp_12 * m[1][3] + tmp_15 * m[2][3] + tmp_16 * m[3][3]) -
+          (tmp_5 * m[0][0] + tmp_8 * m[1][0] + tmp_11 * m[2][0]))];
+  var row2 =[d * ((tmp_12 * m[1][3] + tmp_15 * m[2][3] + tmp_16 * m[3][3]) -
           (tmp_13 * m[1][3] + tmp_14 * m[2][3] + tmp_17 * m[3][3])),
        d * ((tmp_13 * m[0][3] + tmp_18 * m[2][3] + tmp_21 * m[3][3]) -
           (tmp_12 * m[0][3] + tmp_19 * m[2][3] + tmp_20 * m[3][3])),
        d * ((tmp_14 * m[0][3] + tmp_19 * m[1][3] + tmp_22 * m[3][3]) -
           (tmp_15 * m[0][3] + tmp_18 * m[1][3] + tmp_23 * m[3][3])),
        d * ((tmp_17 * m[0][3] + tmp_20 * m[1][3] + tmp_23 * m[2][3]) -
-          (tmp_16 * m[0][3] + tmp_21 * m[1][3] + tmp_22 * m[2][3]))],
-      [d * ((tmp_14 * m[2][2] + tmp_17 * m[3][2] + tmp_13 * m[1][2]) -
+          (tmp_16 * m[0][3] + tmp_21 * m[1][3] + tmp_22 * m[2][3]))];
+  var row3 = [d * ((tmp_14 * m[2][2] + tmp_17 * m[3][2] + tmp_13 * m[1][2]) -
           (tmp_16 * m[3][2] + tmp_12 * m[1][2] + tmp_15 * m[2][2])),
        d * ((tmp_20 * m[3][2] + tmp_12 * m[0][2] + tmp_19 * m[2][2]) -
           (tmp_18 * m[2][2] + tmp_21 * m[3][2] + tmp_13 * m[0][2])),
        d * ((tmp_18 * m[1][2] + tmp_23 * m[3][2] + tmp_15 * m[0][2]) -
           (tmp_22 * m[3][2] + tmp_14 * m[0][2] + tmp_19 * m[1][2])),
        d * ((tmp_22 * m[2][2] + tmp_16 * m[0][2] + tmp_21 * m[1][2]) -
-          (tmp_20 * m[1][2] + tmp_23 * m[2][2] + tmp_17 * m[0][2]))]];
-};
-
-/**
- * Adds two math objects (scalars, vectors, or matrices); assumes the
- * two arguments are the same math type.
- * @param {!Object} a Operand.
- * @param {!Object} b Operand.
- * @return {!Object} The sum of a and b.
- */
-o3djs.math.add = function(a, b) {
-  var s = o3djs.math.mathType(a);
-  return o3djs.math['add' + s](a, b);
-};
-
-/**
- * Subtracts two math objects (scalars, vectors, or matrices); assumes the
- * two arguments are the same math type.
- * @param {!Object} a Operand.
- * @param {!Object} b Operand.
- * @return {!Object} The difference of a and b.
- */
-o3djs.math.sub = function(a, b) {
-  var s = o3djs.math.mathType(a);
-  return o3djs.math['sub' + s](a, b);
-};
-
-/**
- * Performs linear interpolation on two math objects (scalars, vectors, or
- * matrices); assumes the arguments a and b are the same math type. Given a and
- * b and interpolation coefficient t, returns (1 - t) * a + t * b.
- * @param {!Object} a Operand.
- * @param {!Object} b Operand.
- * @param {number} t Interpolation coefficient.
- * @return {!Object} The difference of a and b.
- */
-o3djs.math.lerp = function(a, b, t) {
-  var s = o3djs.math.mathType(a);
-  return o3djs.math['lerp' + s](a, b, t);
-};
-
-/**
- * Negates a math object (scalar, vector, or matrix).
- * @param {!Object} a Operand.
- * @return {!Object} -a.
- */
-o3djs.math.negative = function(a) {
- var s = o3djs.math.mathType(a);
- return o3djs.math['negative' + s](a);
-};
-
-/**
- * Creates a math object (scalar, vector, or matrix) identical to the given one.
- * @param {!Object} a Operand.
- * @return {!Object} A new math object identical to a.
- */
-o3djs.math.copy = function(a) {
- var s = o3djs.math.mathType(a);
- return o3djs.math['copy' + s](a);
-};
-
-/**
- * Multiplies two math objects (scalars, vectors, or matrices); determines
- * which type of multipliation to do based on the math type of the arguments.
- * @param {!Object} a Operand.
- * @param {!Object} b Operand.
- * @return {!Object} The product of a and b.
- */
-o3djs.math.errorCheckFree.mul = function(a, b) {
-  return o3djs.math['mul' + o3djs.math.mathType(a) +
-      o3djs.math.mathType(b)](a, b);
-};
-
-/**
- * Multiplies two math objects (scalars, vectors, or matrices); determines
- * which type of multipliation to do based on the math type of the arguments.
- * @param {!Object} a Operand.
- * @param {!Object} b Operand.
- * @return {!Object} The product of a and b.
- */
-o3djs.math.mul = null;
-
-/**
- * Tests the argumets of mul to make sure they are fit to be multiplied by the
- * mul function, and then applies the mul function.
- * @param {!Object} a Operand.
- * @param {!Object} b Operand.
- * @return {!Object} The product of a and b or nothing if an error occors.
- */
-o3djs.math.errorCheck.mul = function(a, b) {
-  if (arguments.length != 2) {
-    throw 'Wrong number of arguments to mul.  Should be 2.';
-  }
-
-  var rows = [];
-  var columns = [];
-  var sizeTestExempt = false;
-
-  for (var index = 0; index < 2; ++index) {
-    var x = arguments[index];
-    var argumentName = ['a', 'b'][index];
-
-    switch (o3djs.math.mathType(x)) {
-      case 'Scalar':
-        sizeTestExempt = true;
-        break;
-
-      case 'Vector':
-        if (!x.length) {
-          throw 'Vector argument to function mul empty.';
-        }
-        for (var i = 0; i < x.length; ++i) {
-          if (o3djs.math.mathType(x[i]) != 'Scalar') {
-            throw 'Not all entries of vector argument ' +
-                argumentName + ' to function mul are numbers.';
-          }
-        }
-        if (index == 0) {
-          // Vector is a row.
-          rows[index] = 1;
-          columns[index] = x.length;
-        } else {
-          // Vector is a column.
-          rows[index] = x.length;
-          columns[index] = 1;
-        }
-        break;
-
-      case 'Matrix':
-        for (var i = 0; i < x.length; ++i) {
-          if (!x[0] || x[0].length != x[i].length) {
-            throw 'Matrix arugment ' + argumentName +
-                ' to function mul fails to be a non-degenrate rectangular ' +
-                'array.';
-          }
-        }
-
-        rows[index] = o3djs.math.column(x, 0).length;
-        columns[index] = o3djs.math.row(x, 0).length;
-
-        for (var i = 0; i < x.length; ++i) {
-          for (var j = 0; j < x[i].length; ++j) {
-            if (o3djs.math.mathType(x[i][j]) != 'Scalar') {
-              throw 'Not all entries of matrix argument ' +
-                argumentName + ' to function mul are numbers.';
-            }
-          }
-        }
-        break;
-
-      default:
-        throw 'Matrix arugment ' + argumentName + ' to function ' +
-            ' mul fails to be a non-degenrate rectangular array.';
-      break;
-    }
-  }
-
-  if (!sizeTestExempt && columns[0] != rows[1]) {
-    message =
-        'Arguments to mul are incompatably sized to be ' +
-        'multiplied as matrices.  If you are trying to apply a ' +
-        'transformation matrix to a vector, consider using one of the ' +
-        'following functions:\n' +
-        'o3djs.math.matrix4.transformPoint\n' +
-        'o3djs.math.matrix4.transformDirection\n' +
-        'o3djs.math.matrix4.transformNormal\n' +
-        'o3djs.math.matrix4.transformVector4\n';
-    throw message;
-  }
-
-  return o3djs.math['mul' + o3djs.math.mathType(a) +
-      o3djs.math.mathType(b)](a, b);
-};
-
-/**
- * Divides two math objects (scalars, vectors, or matrices)
- * when the division makes sense.
- * @param {!Object} a Operand.
- * @param {!Object} b Operand.
- * @return {!Object} The quotient of a and b.
- */
-o3djs.math.div = function(a, b) {
-  return o3djs.math['div' + o3djs.math.mathType(a) +
-      o3djs.math.mathType(b)](a, b);
+          (tmp_20 * m[1][2] + tmp_23 * m[2][2] + tmp_17 * m[0][2]))];
+  return [row0, row1, row2, row3];
 };
 
 /**
@@ -1651,7 +1537,7 @@ o3djs.math.inverse = function(m) {
     for (var i = 0; i < size; ++i)
       r[j][i] = ((i + j) % 2 ? -1 : 1) * o3djs.math.codet(m, i, j);
   }
-  return o3djs.math.div(r, o3djs.math.det(m));
+  return o3djs.math.divMatrixScalar(r, o3djs.math.det(m));
 };
 
 /**
@@ -1670,12 +1556,53 @@ o3djs.math.orthonormalize = function(m) {
   for (var i = 0; i < mLength; ++i) {
     var v = m[i];
     for (var j = 0; j < i; ++j) {
-      v = o3djs.math.sub(v, o3djs.math.mul(
+      v = o3djs.math.subVector(v, o3djs.math.mulScalarVector(
           o3djs.math.dot(r[j], m[i]), r[j]));
     }
     r[i] = o3djs.math.normalize(v);
   }
   return r;
+};
+
+/**
+ * Computes the inverse of a 4-by-4 matrix.
+ * Note: It is faster to call this than o3djs.math.inverse.
+ * @param {!o3djs.math.Matrix4} m The matrix.
+ * @return {!o3djs.math.Matrix4} The inverse of m.
+ */
+o3djs.math.matrix4.inverse = function(m) {
+  return o3djs.math.inverse4(m);
+};
+
+/**
+ * Multiplies two 4-by-4 matrices; assumes that the given matrices are 4-by-4.
+ * Note: It is faster to call this than o3djs.math.mul.
+ * @param {!o3djs.math.Matrix4} a The matrix on the left.
+ * @param {!o3djs.math.Matrix4} b The matrix on the right.
+ * @return {!o3djs.math.Matrix4} The matrix product of a and b.
+ */
+o3djs.math.matrix4.mul = function(a, b) {
+  return o3djs.math.mulMatrixMatrix4(a, b);
+};
+
+/**
+ * Computes the determinant of a 4-by-4 matrix.
+ * Note: It is faster to call this than o3djs.math.det.
+ * @param {!o3djs.math.Matrix4} m The matrix.
+ * @return {number} The determinant of m.
+ */
+o3djs.math.matrix4.det = function(m) {
+  return o3djs.math.det4(m);
+};
+
+/**
+ * Copies a Matrix4.
+ * Note: It is faster to call this than o3djs.math.copy.
+ * @param {!o3djs.math.Matrix4} m The matrix.
+ * @return {!o3djs.math.Matrix4} A copy of m.
+ */
+o3djs.math.matrix4.copy = function(m) {
+  return o3djs.math.copyMatrix(m);
 };
 
 /**
@@ -1843,6 +1770,24 @@ o3djs.math.matrix4.identity = function() {
 };
 
 /**
+ * Sets the given 4-by-4 matrix to the identity matrix.
+ * @param {!o3djs.math.Matrix4} m The matrix to set to identity.
+ * @return {!o3djs.math.Matrix4} m once modified.
+ */
+o3djs.math.matrix4.setIdentity = function(m) {
+  for (var i = 0; i < 4; i++) {
+    for (var j = 0; j < 4; j++) {
+      if (i == j) {
+        m[i][j] = 1;
+      } else {
+        m[i][j] = 0;
+      }
+    }
+  }
+  return m;
+};
+
+/**
  * Computes a 4-by-4 perspective transformation matrix given the angular height
  * of the frustum, the aspect ratio, and the near and far clipping planes.  The
  * arguments define a frustum extending in the negative z direction.  The given
@@ -1902,6 +1847,34 @@ o3djs.math.matrix4.orthographic =
 };
 
 /**
+ * Computes a 4-by-4 perspective transformation matrix given the left, right,
+ * top, bottom, near and far clipping planes. The arguments define a frustum
+ * extending in the negative z direction. The arguments near and far are the
+ * distances to the near and far clipping planes. Note that near and far are not
+ * z coordinates, but rather they are distances along the negative z-axis. The
+ * matrix generated sends the viewing frustum to the unit box. We assume a unit
+ * box extending from -1 to 1 in the x and y dimensions and from 0 to 1 in the z
+ * dimension.
+ * @param {number} left The x coordinate of the left plane of the box.
+ * @param {number} right The x coordinate of the right plane of the box.
+ * @param {number} bottom The y coordinate of the bottom plane of the box.
+ * @param {number} top The y coordinate of the right plane of the box.
+ * @param {number} near The negative z coordinate of the near plane of the box.
+ * @param {number} far The negative z coordinate of the far plane of the box.
+ * @return {!o3djs.math.Matrix4} The perspective projection matrix.
+ */
+o3djs.math.matrix4.frustum = function(left, right, bottom, top, near, far) {
+  var dx = (right - left);
+  var dy = (top - bottom);
+  var dz = (near - far);
+  return [
+    [2 * near / dx, 0, 0, 0],
+    [0, 2 * near / dy, 0, 0],
+    [(left + right) / dx, (top + bottom) / dy, far / dz, -1],
+    [0, 0, near * far / dz, 0]];
+};
+
+/**
  * Computes a 4-by-4 look-at transformation.  The transformation generated is
  * an orthogonal rotation matrix with translation component.  The translation
  * component sends the eye to the origin.  The rotation component sends the
@@ -1918,7 +1891,7 @@ o3djs.math.matrix4.orthographic =
  */
 o3djs.math.matrix4.lookAt = function(eye, target, up) {
   var vz = o3djs.math.normalize(
-      o3djs.math.sub(eye, target).slice(0, 3)).concat(0);
+      o3djs.math.subVector(eye, target).slice(0, 3)).concat(0);
   var vx = o3djs.math.normalize(
       o3djs.math.cross(up, vz)).concat(0);
   var vy = o3djs.math.cross(vz, vx).concat(0);

@@ -29,6 +29,7 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+
 /**
  * @fileoverview This file contains various functions and classes for dealing
  * with 3d scenes.
@@ -36,7 +37,6 @@
 
 o3djs.provide('o3djs.scene');
 
-o3djs.require('o3djs.error');
 o3djs.require('o3djs.io');
 o3djs.require('o3djs.serialization');
 
@@ -55,8 +55,8 @@ o3djs.scene = o3djs.scene || {};
  * @param {!function(!o3d.Pack, !o3d.Transform, *): void} callback
  *     Callback when scene is loaded. It will be passed the pack, the parent and
  *     an exception which is null on success.
- * @param {!Object} opt_options Options passed into the loader. See
- *     o3djs.seralization.deserializeArchive for details.
+ * @param {!o3djs.serialization.Options} opt_options Options passed into the
+ *     loader.
  * @return {!o3djs.io.LoadInfo} A LoadInfo for tracking progress.
  * @see o3djs.loader.createLoader
  */
@@ -69,24 +69,21 @@ o3djs.scene.loadScene = function(client,
   // Starts the deserializer once the entire archive is available.
   function onFinished(archiveInfo, exception) {
     if (!exception) {
-      var errorCollector = o3djs.error.createErrorCollector(client);
-      try {
-        o3djs.serialization.deserializeArchive(archiveInfo,
-                                               'scene.json',
-                                               pack,
-                                               parent,
-                                               opt_options);
-      } catch (e) {
-        exception = e;
-      }
-      if (errorCollector.errors.length > 0) {
-        exception = errorCollector.errors.join('\n') +
-                    exception ? ('\n' + exception.toString) : '';
-      }
-      errorCollector.finish();
+      var finishCallback = function(pack, parent, exception) {
+        archiveInfo.destroy();
+        callback(pack, parent, exception);
+      };
+      o3djs.serialization.deserializeArchive(archiveInfo,
+                                             'scene.json',
+                                             client,
+                                             pack,
+                                             parent,
+                                             finishCallback,
+                                             opt_options);
+    } else {
+      archiveInfo.destroy();
+      callback(pack, parent, exception);
     }
-    archiveInfo.destroy();
-    callback(pack, parent, exception);
   }
   return o3djs.io.loadArchive(pack, url, onFinished);
 };

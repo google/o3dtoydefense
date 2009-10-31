@@ -29,6 +29,7 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+
 /**
  * @fileoverview This file contains various dumping functions for o3d.  It
  * puts them in the "dump" module on the o3djs object.
@@ -78,7 +79,7 @@ o3djs.dump.dumpXYZW_ = function(label, object, opt_prefix) {
 /**
  * Get the name of a function.
  * @private
- * @param {!function} theFunction Function.
+ * @param {!function(...): *} theFunction Function.
  * @return {string} The function name.
  */
 o3djs.dump.getFunctionName_ = function(theFunction) {
@@ -102,7 +103,7 @@ o3djs.dump.getFunctionName_ = function(theFunction) {
 /**
  * Get the signature of a function.
  * @private
- * @param {!function} theFunction Function.
+ * @param {!function(...): *} theFunction Function.
  * @return {string} The function signature.
  */
 o3djs.dump.getSignature_ = function(theFunction) {
@@ -133,7 +134,7 @@ o3djs.dump.getSignature_ = function(theFunction) {
  * @param {string} string String to print.
  */
 o3djs.dump.dump = function(string) {
-  o3djs.BROWSER_ONLY;
+  o3djs.BROWSER_ONLY = true;
   if (window.dump) {
     window.dump(string);
   } else if (window.console && window.console.log) {
@@ -143,7 +144,7 @@ o3djs.dump.dump = function(string) {
 
 /**
  * Gets the value of a matrix as a string.
- * @param {Matrix4} matrix Matrix4 to get value of.
+ * @param {!o3djs.math.Matrix4} matrix Matrix4 to get value of.
  * @param {string} opt_prefix Optional prefix for indenting.
  * @return {string} Value of param.
  */
@@ -174,20 +175,9 @@ o3djs.dump.getMatrixAsString = function(matrix, opt_prefix) {
 };
 
 /**
- * Dumps a point3
- * @param {string} label Label to put in front of dump.
- * @param {o3d.Point3} point3 Point3 to dump.
- * @param {string} opt_prefix optional prefix for indenting.
- */
-o3djs.dump.dumpPoint3 = function(label, point3, opt_prefix) {
-  opt_prefix = opt_prefix || '';
-  o3djs.dump.dumpXYZ_(label, point3, opt_prefix);
-};
-
-/**
  * Dumps a float3
  * @param {string} label Label to put in front of dump.
- * @param {o3d.Float3} float3 Float3 to dump.
+ * @param {!o3d.Float3} float3 Float3 to dump.
  * @param {string} opt_prefix optional prefix for indenting.
  */
 o3djs.dump.dumpFloat3 = function(label, float3, opt_prefix) {
@@ -196,20 +186,9 @@ o3djs.dump.dumpFloat3 = function(label, float3, opt_prefix) {
 };
 
 /**
- * Dumps a vector3
- * @param {string} label Label to put in front of dump.
- * @param {o3d.Vector3} vector3 Vector3 to dump.
- * @param {string} opt_prefix optional prefix for indenting.
- */
-o3djs.dump.dumpVector3 = function(label, vector3, opt_prefix) {
-  opt_prefix = opt_prefix || '';
-  o3djs.dump.dumpXYZ_(label, vector3, opt_prefix);
-};
-
-/**
  * Dumps a float4
  * @param {string} label Label to put in front of dump.
- * @param {o3d.Float4} float4 Float4 to dump.
+ * @param {!o3d.Float4} float4 Float4 to dump.
  * @param {string} opt_prefix optional prefix for indenting.
  */
 o3djs.dump.dumpFloat4 = function(label, float4, opt_prefix) {
@@ -231,7 +210,7 @@ o3djs.dump.dumpVector4 = function(label, vector4, opt_prefix) {
 /**
  * Dumps a matrix
  * @param {string} label Label to put in front of dump.
- * @param {o3d.Matrix} matrix Matrix to dump.
+ * @param {!o3djs.math.Matrix4} matrix Matrix to dump.
  * @param {string} opt_prefix optional prefix for indenting.
  */
 o3djs.dump.dumpMatrix = function(label, matrix, opt_prefix) {
@@ -245,7 +224,7 @@ o3djs.dump.dumpMatrix = function(label, matrix, opt_prefix) {
 /**
  * Dump a bounding box.
  * @param {string} label Label to put in front of dump.
- * @param {o3d.BoundingBox} boundingBox BoundingBox to dump.
+ * @param {!o3d.BoundingBox} boundingBox BoundingBox to dump.
  * @param {string} opt_prefix optional prefix for indenting.
  */
 o3djs.dump.dumpBoundingBox = function(label,
@@ -253,17 +232,17 @@ o3djs.dump.dumpBoundingBox = function(label,
                                       opt_prefix) {
   opt_prefix = opt_prefix || '';
   o3djs.dump.dump(opt_prefix + label + ' :\n');
-  o3djs.dump.dumpPoint3('min : ',
+  o3djs.dump.dumpFloat3('min : ',
                         boundingBox.minExtent,
                         opt_prefix + '    ');
-  o3djs.dump.dumpPoint3('max : ',
+  o3djs.dump.dumpFloat3('max : ',
                         boundingBox.maxExtent,
                         opt_prefix + '    ');
 };
 
 /**
  * Gets the value of a parameter as a string.
- * @param {Param} param Parameter to get value of.
+ * @param {!o3d.Param} param Parameter to get value of.
  * @param {string} opt_prefix Optional prefix for indenting.
  * @return {string} Value of param.
  */
@@ -315,6 +294,13 @@ o3djs.dump.getParamValueAsString = function(param, opt_prefix) {
   } else if (param.isAClassName('o3d.ParamDrawList')) {
     value = param.value;
     value = 'drawlist : "' + (value ? value.name : 'NULL') + '"';
+  } else if (param.isAClassName('o3d.ParamRenderSurface')) {
+    value = param.value;
+    value = 'renderSurface : "' + (value ? value.name : 'NULL') + '"';
+  } else if (param.isAClassName('o3d.ParamRenderDepthStencilSurface')) {
+    value = param.value;
+    value = 'renderDepthStencilSurface: "' + (value ? value.name : 'NULL') +
+            '"';
   } else if (param.isAClassName('o3d.ParamDrawContext')) {
     value = param.value;
     value = 'drawcontext : "' + (value ? value.name : 'NULL') + '"';
@@ -325,7 +311,7 @@ o3djs.dump.getParamValueAsString = function(param, opt_prefix) {
 
 /**
  * Dumps an single parameter
- * @param {Param} param Param to dump.
+ * @param {!o3d.Param} param Param to dump.
  * @param {string} opt_prefix Optional prefix for indenting.
  */
 o3djs.dump.dumpParam = function(param, opt_prefix) {
@@ -337,7 +323,7 @@ o3djs.dump.dumpParam = function(param, opt_prefix) {
 
 /**
  * Given a ParamObject dumps all the Params on it.
- * @param {ParamObject} param_object ParamObject to dump Params of.
+ * @param {!o3d.ParamObject} param_object ParamObject to dump Params of.
  * @param {string} opt_prefix Optional prefix for indenting.
  */
 o3djs.dump.dumpParams = function(param_object, opt_prefix) {
@@ -351,7 +337,7 @@ o3djs.dump.dumpParams = function(param_object, opt_prefix) {
 
 /**
  * Given a ParamObject dumps it and all the Params on it.
- * @param {ParamObject} param_object ParamObject to dump.
+ * @param {!o3d.ParamObject} param_object ParamObject to dump.
  * @param {string} opt_prefix Optional prefix for indenting.
  */
 o3djs.dump.dumpParamObject = function(param_object, opt_prefix) {
@@ -364,7 +350,7 @@ o3djs.dump.dumpParamObject = function(param_object, opt_prefix) {
 
 /**
  * Given a Stream dumps it and all the Params on it.
- * @param {Stream} stream Stream to dump.
+ * @param {!o3d.Stream} stream Stream to dump.
  * @param {string} opt_prefix Optional prefix for indenting.
  */
 o3djs.dump.dumpStream = function(stream, opt_prefix) {
@@ -379,7 +365,7 @@ o3djs.dump.dumpStream = function(stream, opt_prefix) {
 /**
  * Given a element dumps its name, all the Params and DrawElements on
  * it.
- * @param {Element} element Element to dump.
+ * @param {!o3d.Element} element Element to dump.
  * @param {string} opt_prefix Optional prefix for indenting.
  */
 o3djs.dump.dumpElement = function(element, opt_prefix) {
@@ -426,7 +412,7 @@ o3djs.dump.dumpElement = function(element, opt_prefix) {
 /**
  * Given a shape dumps its name, all the Params and Primitves on
  * it.
- * @param {Shape} shape Shape to dump.
+ * @param {!o3d.Shape} shape Shape to dump.
  * @param {string} opt_prefix Optional prefix for indenting.
  */
 o3djs.dump.dumpShape = function(shape, opt_prefix) {
@@ -454,7 +440,7 @@ o3djs.dump.dumpShape = function(shape, opt_prefix) {
 /**
  * Given a texture dumps its name and other info.
  * it.
- * @param {o3d.Texture} texture Texture to dump.
+ * @param {!o3d.Texture} texture Texture to dump.
  * @param {string} opt_prefix Optional prefix for indenting.
  */
 o3djs.dump.dumpTexture = function(texture, opt_prefix) {
@@ -476,7 +462,7 @@ o3djs.dump.dumpTexture = function(texture, opt_prefix) {
 
 /**
  * Given a transform dumps its name and all the Params and Shapes on it.
- * @param {Transform} transform Transform to dump.
+ * @param {!o3d.Transform} transform Transform to dump.
  * @param {string} opt_prefix Optional prefix for indenting.
  */
 o3djs.dump.dumpTransform = function(transform, opt_prefix) {
@@ -509,7 +495,7 @@ o3djs.dump.dumpTransform = function(transform, opt_prefix) {
 
 /**
  * Dumps an entire transform graph tree.
- * @param {Transform} transform Transform to start dumping from.
+ * @param {!o3d.Transform} transform Transform to start dumping from.
  * @param {string} opt_prefix Optional prefix for indenting.
  */
 o3djs.dump.dumpTransformTree = function(transform, opt_prefix) {
@@ -526,7 +512,7 @@ o3djs.dump.dumpTransformTree = function(transform, opt_prefix) {
 
 /**
  * Dumps a list of Transforms.
- * @param {TransformArray} transform_list Array of Transforms to dump.
+ * @param {!Array.<!o3d.Transform>} transform_list Array of Transforms to dump.
  */
 o3djs.dump.dumpTransformList = function(transform_list) {
   o3djs.dump.dump (transform_list.length + ' transforms in list!!!\n');
@@ -537,7 +523,7 @@ o3djs.dump.dumpTransformList = function(transform_list) {
 
 /**
  * Dumps the name and class of a NamedObject.
- * @param {NamedObject} namedObject to use.
+ * @param {!o3d.NamedObject} namedObject to use.
  * @param {string} opt_prefix Optional prefix for indenting.
  */
 o3djs.dump.dumpNamedObjectName = function(namedObject, opt_prefix) {
@@ -549,7 +535,7 @@ o3djs.dump.dumpNamedObjectName = function(namedObject, opt_prefix) {
 
 /**
  * Dumps a RenderNode and all its paramaters.
- * @param {RenderNode} render_node RenderNode to use.
+ * @param {!o3d.RenderNode} render_node RenderNode to use.
  * @param {string} opt_prefix Optional prefix for indenting.
  */
 o3djs.dump.dumpRenderNode = function(render_node, opt_prefix) {
@@ -566,7 +552,7 @@ o3djs.dump.dumpRenderNode = function(render_node, opt_prefix) {
 
 /**
  * Dumps an entire RenderGraph tree.
- * @param {RenderNode} render_node RenderNode to start dumping from.
+ * @param {!o3d.RenderNode} render_node RenderNode to start dumping from.
  * @param {string} opt_prefix Optional prefix for indenting.
  */
 o3djs.dump.dumpRenderNodeTree = function(render_node, opt_prefix) {
@@ -575,7 +561,10 @@ o3djs.dump.dumpRenderNodeTree = function(render_node, opt_prefix) {
   o3djs.dump.dumpRenderNode(render_node, opt_prefix);
 
   var child_prefix = opt_prefix + '    ';
-  var children = render_node.children;
+  // Get the list of children sorted by priority.
+  var children = render_node.children.sort(function(a, b) {
+        return a.priority - b.priority;
+      });
   for (var c = 0; c < children.length; c++) {
     o3djs.dump.dumpRenderNodeTree(children[c], child_prefix);
   }

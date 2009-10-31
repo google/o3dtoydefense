@@ -29,6 +29,7 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+
 /**
  * @fileoverview This file contains a loader class for helping to load
  *     muliple assets in an asynchronous manner.
@@ -110,11 +111,56 @@ o3djs.loader.Loader.prototype.loadTexture = function(pack,
 };
 
 /**
+ * Loads a RawData.
+ * @param {!o3d.Pack} pack Pack to load texture into.
+ * @param {string} url URL of image file to load.
+ * @param {!function(!o3d.FileRequest, o3d.RawData, *): void} onLoaded Callback
+ *     when RawData is loaded. It will be passed the request, a RawData and an
+ *     exception which is null on success. The RawData is associated with
+ *     the request so it will stay in memory until you free with request with
+ *     pack.removeObject(request).
+ */
+o3djs.loader.Loader.prototype.loadRawData = function(pack,
+                                                     url,
+                                                     onLoaded) {
+  var that = this;  // so the function below can see "this".
+  ++this.count_;
+  var loadInfo = o3djs.io.loadRawData(
+      pack, url, function(request, rawData, exception) {
+    onLoaded(request, rawData, exception);
+    that.countDown_();
+  });
+  this.loadInfo.addChild(loadInfo);
+};
+
+/**
+ * Loads bitmaps.
+ * @param {!o3d.Pack} pack Pack to load texture into.
+ * @param {string} url URL of image file to load.
+ * @param {!function(!Array.<!o3d.Bitmap>, *): void} onBitmapsLoaded Callback
+ *     when bitmaps are loaded. It will be passed an array of bitmaps and an
+ *     exception which is null on success.
+ */
+o3djs.loader.Loader.prototype.loadBitmaps = function(pack,
+                                                     url,
+                                                     onBitmapsLoaded) {
+  var that = this;  // so the function below can see "this".
+  ++this.count_;
+  var loadInfo = o3djs.io.loadBitmaps(pack, url, function(bitmaps, exception) {
+    onBitmapsLoaded(bitmaps, exception);
+    that.countDown_();
+  });
+  this.loadInfo.addChild(loadInfo);
+};
+
+/**
  * Loads a 3d scene.
  * @param {!o3d.Client} client An O3D client object.
  * @param {!o3d.Pack} pack Pack to load texture into.
  * @param {!o3d.Transform} parent Transform to parent scene under.
  * @param {string} url URL of scene to load.
+ * @param {!o3djs.serialization.Options} opt_options Options passed into the
+ *     loader.
  * @param {!function(!o3d.Pack, !o3d.Transform, *): void}
  *     opt_onSceneLoaded optional callback when scene is loaded. It will be
  *     passed the pack and parent and an exception which is null on success.
@@ -123,16 +169,18 @@ o3djs.loader.Loader.prototype.loadScene = function(client,
                                                    pack,
                                                    parent,
                                                    url,
-                                                   opt_onSceneLoaded) {
+                                                   opt_onSceneLoaded,
+                                                   opt_options) {
   var that = this;  // so the function below can see "this".
   ++this.count_;
   var loadInfo = o3djs.scene.loadScene(
       client, pack, parent, url, function(pack, parent, exception) {
-    if (opt_onSceneLoaded) {
-      opt_onSceneLoaded(pack, parent, exception);
-    }
-    that.countDown_();
-  });
+        if (opt_onSceneLoaded) {
+          opt_onSceneLoaded(pack, parent, exception);
+        }
+        that.countDown_();
+      },
+      opt_options);
   this.loadInfo.addChild(loadInfo);
 };
 

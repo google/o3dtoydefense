@@ -29,9 +29,11 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+
 /**
  * @fileoverview This file contains functions for implementing picking.
  * It puts them in the "picking" module on the o3djs object.
+ *
  *
  * This example shows one way to implement picking. Because O3D is shader
  * agnostic we can't handle picking automatically since we have no way of
@@ -61,19 +63,27 @@ o3djs.require('o3djs.dump');
 o3djs.picking = o3djs.picking || {};
 
 /**
+ * A ray.
+ * @type {{near: !o3djs.math.Vector3, far: !o3djs.math.Vector3}}
+ */
+o3djs.picking.Ray = goog.typedef;
+
+/**
  * Creates a new PickInfo.
- * @param {!o3djs.picking.ShapeInfo} shapeInfo The ShapeInfo that
- *     was picked.
- * @param {!o3d.RayIntersectionInfo} rayIntersectionInfo Information
- *     about the pick.
- * @param {!o3djs.math.Vector3} worldIntersectionPosition
- *     world position of intersection.
+ * @param {!o3d.Element} element The Element that was picked.
+ * @param {!o3djs.picking.ShapeInfo} shapeInfo The ShapeInfo that was picked.
+ * @param {!o3d.RayIntersectionInfo} rayIntersectionInfo Information about the
+ *     pick.
+ * @param {!o3djs.math.Vector3} worldIntersectionPosition world position of
+ *     intersection.
  * @return {!o3djs.picking.PickInfo} The new PickInfo.
  */
-o3djs.picking.createPickInfo = function(shapeInfo,
+o3djs.picking.createPickInfo = function(element,
+                                        shapeInfo,
                                         rayIntersectionInfo,
                                         worldIntersectionPosition) {
-  return new o3djs.picking.PickInfo(shapeInfo,
+  return new o3djs.picking.PickInfo(element,
+                                    shapeInfo,
                                     rayIntersectionInfo,
                                     worldIntersectionPosition);
 };
@@ -81,7 +91,7 @@ o3djs.picking.createPickInfo = function(shapeInfo,
 /**
  * Creates a new ShapeInfo.
  * @param {!o3d.Shape} shape Shape to keep info about.
- * @param {!o3d.Transform} parent Parent transform of the shape.
+ * @param {!o3djs.picking.TransformInfo} parent Parent transform of the shape.
  * @return {!o3djs.picking.ShapeInfo} The new ShapeInfo.
  */
 o3djs.picking.createShapeInfo = function(shape, parent) {
@@ -91,8 +101,8 @@ o3djs.picking.createShapeInfo = function(shape, parent) {
 /**
  * Creates a new TransformInfo.
  * @param {!o3d.Transform} transform Transform to keep info about.
- * @param {o3d.Transform} parent Parent transform of the transform.
- *     Can be null.
+ * @param {o3djs.picking.TransformInfo} parent Parent transform of the
+ *     transform. Can be null.
  * @return {!o3djs.picking.TransformInfo} The new TransformInfo.
  */
 o3djs.picking.createTransformInfo = function(transform, parent) {
@@ -109,7 +119,7 @@ o3djs.picking.createTransformInfo = function(transform, parent) {
  *     with.
  * @param {number} clientWidth width of client area.
  * @param {number} clientHeight height of client area.
- * @return {Ray} ray in world space.
+ * @return {!o3djs.picking.Ray} ray in world space.
  */
 o3djs.picking.clientPositionToWorldRayEx = function(clientXPosition,
                                                     clientYPosition,
@@ -142,7 +152,7 @@ o3djs.picking.clientPositionToWorldRayEx = function(clientXPosition,
  *     projection matrices from.
  * @param {number} clientWidth width of client area.
  * @param {number} clientHeight height of client area.
- * @return {Ray} ray in world space.
+ * @return {!o3djs.picking.Ray} ray in world space.
  */
 o3djs.picking.clientPositionToWorldRay = function(clientXPosition,
                                                   clientYPosition,
@@ -211,16 +221,23 @@ o3djs.picking.dumpRayIntersectionInfo = function(label,
 /**
  * Creates a new PickInfo. Used to return picking information.
  * @constructor
- * @param {!o3djs.picking.ShapeInfo} shapeInfo The ShapeInfo that
- *     was picked.
- * @param {!o3d.RayIntersectionInfo} rayIntersectionInfo Information
- *     about the pick.
+ * @param {!o3d.Element} element The Element that was picked.
+ * @param {!o3djs.picking.ShapeInfo} shapeInfo The ShapeInfo that was picked.
+ * @param {!o3d.RayIntersectionInfo} rayIntersectionInfo Information about the
+ *     pick.
  * @param {!o3djs.math.Vector3} worldIntersectionPosition world position of
  *     intersection.
  */
-o3djs.picking.PickInfo = function(shapeInfo,
+o3djs.picking.PickInfo = function(element,
+                                  shapeInfo,
                                   rayIntersectionInfo,
                                   worldIntersectionPosition) {
+  /**
+   * The Element that was picked (Primitive).
+   * @type {!o3d.Element}
+   */
+  this.element = element;
+
   /**
    * The ShapeInfo that was picked.
    * @type {!o3djs.picking.ShapeInfo}
@@ -229,7 +246,7 @@ o3djs.picking.PickInfo = function(shapeInfo,
 
   /**
    * Information about the pick.
-   * @type {!o3d.RayInterstionInfo}
+   * @type {!o3d.RayIntersectionInfo}
    */
   this.rayIntersectionInfo = rayIntersectionInfo;
 
@@ -244,7 +261,7 @@ o3djs.picking.PickInfo = function(shapeInfo,
  * Creates a new ShapeInfo. Used to store information about Shapes.
  * @constructor
  * @param {!o3d.Shape} shape Shape to keep info about.
- * @param {!o3d.Transform} parent Parent transform of the shape.
+ * @param {!o3djs.picking.TransformInfo} parent Parent transform of the shape.
  */
 o3djs.picking.ShapeInfo = function(shape, parent) {
   /**
@@ -254,8 +271,8 @@ o3djs.picking.ShapeInfo = function(shape, parent) {
   this.shape = shape;
 
   /**
-   * The parent Transform of this Shape.
-   * @type {!o3d.Transform}
+   * The parent TransformInfo of this Shape.
+   * @type {!o3djs.picking.TransformInfo}
    */
   this.parent = parent;
 
@@ -270,7 +287,7 @@ o3djs.picking.ShapeInfo = function(shape, parent) {
 
 /**
  * Gets the BoundingBox of the Shape in this ShapeInfo.
- * @return {!o3d.BoundingBox} The Shape's BoundingBox.
+ * @return {o3d.BoundingBox} The Shape's BoundingBox.
  */
 o3djs.picking.ShapeInfo.prototype.getBoundingBox = function() {
   return this.boundingBox;
@@ -292,7 +309,7 @@ o3djs.picking.ShapeInfo.prototype.update = function() {
 /**
  * Attempts to "pick" this Shape by checking for the intersection of a ray
  * in world space to the triangles this shape uses.
- * @param {Ray} worldRay A ray in world space to pick against.
+ * @param {!o3djs.picking.Ray} worldRay A ray in world space to pick against.
  * @return {o3djs.picking.PickInfo} Information about the picking.
  *     null if the ray did not intersect any triangles.
  */
@@ -323,11 +340,12 @@ o3djs.picking.ShapeInfo.prototype.pick = function(worldRay) {
           'SHAPE(tris): ' + this.shape.name + ' : element ' + element.name,
           rayIntersectionInfo);
 
-      // TODO(gman): get closest element not just first element.
+      // TODO: get closest element not just first element.
       if (rayIntersectionInfo.intersected) {
         var worldIntersectionPosition = o3djs.math.matrix4.transformPoint(
             worldMatrix, rayIntersectionInfo.position);
-        return o3djs.picking.createPickInfo(this,
+        return o3djs.picking.createPickInfo(element,
+                                            this,
                                             rayIntersectionInfo,
                                             worldIntersectionPosition);
       }
@@ -354,20 +372,28 @@ o3djs.picking.ShapeInfo.prototype.dump = function(prefix) {
  * Creates a new TransformInfo. Used to store information about Transforms.
  * @constructor
  * @param {!o3d.Transform} transform Transform to keep info about.
- * @param {o3d.Transform} parent Parent transform of the transform.
- *     Can be null.
+ * @param {o3djs.picking.TransformInfo} parent Parent transformInfo of the
+ *     transform. Can be null.
  */
 o3djs.picking.TransformInfo = function(transform, parent) {
   this.childTransformInfos = {};  // Object of TransformInfo by id
   this.shapeInfos = {};  // Object of ShapeInfo by id
+  /**
+   * The transform of this transform info.
+   * @type {!o3d.Transform}
+   */
   this.transform = transform;
+  /**
+   * The parent of this transform info.
+   * @type {o3djs.picking.TransformInfo}
+   */
   this.parent = parent;
   this.boundingBox = null;
 };
 
 /**
  * Gets the BoundingBox of the Transform in this TransformInfo.
- * @return {!o3d.BoundingBox} The Transform's BoundingBox.
+ * @return {o3d.BoundingBox} The Transform's BoundingBox.
  */
 o3djs.picking.TransformInfo.prototype.getBoundingBox = function() {
   return this.boundingBox;
@@ -383,7 +409,6 @@ o3djs.picking.TransformInfo.prototype.update = function() {
   var children = this.transform.children;
   for (var c = 0; c < children.length; c++) {
     var child = children[c];
-  if(g_thingsToNotPick[child.clientId]) { continue; }
     var transformInfo = this.childTransformInfos[child.clientId];
     if (!transformInfo) {
       transformInfo = o3djs.picking.createTransformInfo(child, this);
@@ -394,7 +419,6 @@ o3djs.picking.TransformInfo.prototype.update = function() {
     transformInfo.update();
     newChildTransformInfos[child.clientId] = transformInfo;
   }
-
   var shapes = this.transform.shapes;
   for (var s = 0; s < shapes.length; s++) {
     var shape = shapes[s];
@@ -433,10 +457,12 @@ o3djs.picking.TransformInfo.prototype.update = function() {
     // Note: If there is no shape at the leaf on this branch
     // there will be no bounding box.
     var box = transformInfo.getBoundingBox();
-    if (!boundingBox && box) {
-      boundingBox = box.mul(this.transform.localMatrix);
-    } else if (box) {
-      boundingBox = boundingBox.add(box.mul(this.transform.localMatrix));
+    if (box) {
+      if (!boundingBox) {
+        boundingBox = box.mul(this.transform.localMatrix);
+      } else {
+        boundingBox = boundingBox.add(box.mul(this.transform.localMatrix));
+      }
     }
   }
 
@@ -448,7 +474,7 @@ o3djs.picking.TransformInfo.prototype.update = function() {
  * ray in world space to the boundingbox of the TransformInfo. If intesection
  * is succesful recursively calls its children and shapes to try to find
  * a single Shape that is hit by the ray.
- * @param {Ray} worldRay A ray in world space to pick against.
+ * @param {!o3djs.picking.Ray} worldRay A ray in world space to pick against.
  * @return {o3djs.picking.PickInfo} Information about the picking.
  *     null if the ray did not intersect any triangles.
  */
@@ -477,8 +503,8 @@ o3djs.picking.TransformInfo.prototype.pick = function(worldRay) {
         if (pickInfo) {
           // is this closer than the last one?
           var distance = o3djs.math.lengthSquared(
-              o3djs.math.sub(worldRay.near,
-                             pickInfo.worldIntersectionPosition));
+              o3djs.math.subVector(worldRay.near,
+                                   pickInfo.worldIntersectionPosition));
           if (!closestPickInfo || distance < minDistance) {
             minDistance = distance;
             closestPickInfo = pickInfo;
@@ -492,8 +518,8 @@ o3djs.picking.TransformInfo.prototype.pick = function(worldRay) {
         if (pickInfo) {
           // is this closer than the last one?
           var distance = o3djs.math.lengthSquared(
-              o3djs.math.sub(worldRay.near,
-                             pickInfo.worldIntersectionPosition));
+              o3djs.math.subVector(worldRay.near,
+                                   pickInfo.worldIntersectionPosition));
           if (!closestPickInfo || distance < minDistance) {
             minDistance = distance;
             closestPickInfo = pickInfo;

@@ -29,6 +29,7 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+
 /**
  * @fileoverview This file contains various functions for helping setup
  * shapes for o3d.  It puts them in the "shape" module on the o3djs
@@ -36,6 +37,7 @@
  *
  *     Note: This library is only a sample. It is not meant to be some official
  *     library. It is provided only as example code.
+ *
  */
 
 o3djs.provide('o3djs.shape');

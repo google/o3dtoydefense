@@ -29,8 +29,10 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+
 /**
  * @fileoverview This file contains various error handing functions for o3d.
+ *
  */
 
 o3djs.provide('o3djs.error');
@@ -51,7 +53,7 @@ o3djs.error = o3djs.error || {};
 /**
  * A map of error callbacks by client.
  * @private
- * @type {!Array.<function(string): void>}
+ * @type {!Array.<(function(string): void|null)>}
  */
 o3djs.error.callbacks_ = [];
 
@@ -60,8 +62,10 @@ o3djs.error.callbacks_ = [];
  * error callback.
  * displays an alert on the first error.
  * @param {!o3d.Client} client The client object of the plugin.
- * @param {function(string): void} callback The callack to use, null to clear.
- * @return {function(string): void} the previous error callback for this client.
+ * @param {(function(string): void|null)} callback The callack to use, null to
+ *     clear.
+ * @return {(function(string): void|null)} the previous error callback for this
+ *     client.
  */
 o3djs.error.setErrorHandler = function(client, callback) {
   var clientId = client.clientId;
@@ -116,7 +120,7 @@ o3djs.error.ErrorCollector = function(client) {
    */
   this.errors = [];
   this.oldCallback_ = o3djs.error.setErrorHandler(client, function(msg) {
-          that.errors_.push(msg);
+          that.errors.push(msg);
       });
 };
 

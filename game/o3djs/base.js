@@ -29,13 +29,15 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+
 /**
  * @fileoverview Base for all o3d sample utilties.
  *    For more information about o3d see
  *    http://code.google.com/p/o3d.
  *
+ *
  * The main point of this module is to provide a central place to
- * have an init function to register a o3d namespace object because many other
+ * have an init function to register an o3d namespace object because many other
  * modules need access to it.
  */
 
@@ -74,9 +76,9 @@ o3djs.global = this;
 /**
  * Flag used to force a function to run in the browser when it is called
  * from V8.
- * @type {undefined}
+ * @type {boolean}
  */
-o3djs.BROWSER_ONLY = undefined;
+o3djs.BROWSER_ONLY = true;
 
 /**
  * Array of namespaces that have been provided.
@@ -164,7 +166,7 @@ o3djs.exportPath_ = function(name, opt_object, opt_objectToExportTo) {
  * @param {string} name The fully qualified name.
  * @param {Object} opt_obj The object within which to look; default is
  *     |o3djs.global|.
- * @return {Object?} The object or, if not found, null.
+ * @return {Object} The object or, if not found, null.
  */
 o3djs.getObjectByName = function(name, opt_obj) {
   var parts = name.split('.');
@@ -186,6 +188,14 @@ o3djs.getObjectByName = function(name, opt_obj) {
  * @param {string} rule Rule to include, in the form o3djs.package.part.
  */
 o3djs.require = function(rule) {
+  // TODO(gman): For some unknown reason, when we call
+  // o3djs.util.getScriptTagText_ it calls
+  // document.getElementsByTagName('script') and for some reason the scripts do
+  // not always show up. Calling it here seems to fix that as long as we
+  // actually ask for the length, at least in FF 3.5.1 It would be nice to
+  // figure out why.
+  var dummy = document.getElementsByTagName('script').length;
+
   // if the object already exists we do not need do do anything
   if (o3djs.getObjectByName(rule)) {
     return;
@@ -417,7 +427,7 @@ o3djs.valueToString_ = function(value) {
       if (value === null) {
         return 'null';
       } else {
-        // TODO(apatrick): all the other builtin JavaScript objects like Date,
+        // TODO: all the other builtin JavaScript objects like Date,
         // Number, Boolean, etc.
         if (value instanceof RegExp) {
           var result =
@@ -434,20 +444,22 @@ o3djs.valueToString_ = function(value) {
           result += '")';
           return result;
         } else if (o3djs.base.isArray(value)) {
+          var valueAsArray = /** @type {!Array} */ (value);
           var result = '[';
           var separator = '';
-          for (var i = 0; i < value.length; ++i) {
-            result += separator + o3djs.valueToString_(value[i]);
+          for (var i = 0; i < valueAsArray.length; ++i) {
+            result += separator + o3djs.valueToString_(valueAsArray[i]);
             separator = ',';
           }
           result += ']\n';
           return result;
         } else {
+          var valueAsObject = /** @type {!Object} */ (value);
           var result = '{\n';
           var separator = '';
-          for (var propertyName in value) {
+          for (var propertyName in valueAsObject) {
             result += separator + '"' + propertyName + '": ' +
-              o3djs.valueToString_(value[propertyName]);
+              o3djs.valueToString_(valueAsObject[propertyName]);
             separator = ',';
           }
           result += '}\n';
@@ -464,7 +476,7 @@ o3djs.valueToString_ = function(value) {
  * generates a string that when evaluated will populate the namespace.
  * @param {!Object} namespaceObject An object holding a namespace.
  * @param {string} namespaceName The name of the namespace.
- * @param {!Array.<Object>} args An array of objects that will be used
+ * @param {!Array.<Object>} opt_args An array of objects that will be used
  *     together with the initializer string to populate a namespace. The args
  *     may be referenced from initializer code as args_[i] where i is the index
  *     in the array.
@@ -473,7 +485,7 @@ o3djs.valueToString_ = function(value) {
  */
 o3djs.namespaceInitializer_ = function(namespaceObject,
                                        namespaceName,
-                                       args) {
+                                       opt_args) {
   var result = namespaceName + ' = {};\n';
   for (var propertyName in namespaceObject) {
     var propertyNamespaceName = namespaceName + '.' + propertyName;
@@ -490,8 +502,8 @@ o3djs.namespaceInitializer_ = function(namespaceObject,
       // of the function rather than create a new function in V8.
       if (typeof(propertyValue) == 'function' &&
           valueAsString.indexOf('o3djs.BROWSER_ONLY') != -1) {
-        valueAsString = 'args_[' + args.length + ']';
-        args.push(propertyValue);
+        valueAsString = 'args_[' + opt_args.length + ']';
+        opt_args.push(propertyValue);
       }
       result += propertyNamespaceName + ' = ' + valueAsString + ';\n';
 
@@ -516,7 +528,7 @@ o3djs.base = o3djs.base || {};
 /**
  * The a Javascript copy of the o3d namespace object. (holds constants, enums,
  * etc...)
- * @type {o3d.o3d}
+ * @type {o3d}
  */
 o3djs.base.o3d = null;
 
@@ -533,7 +545,9 @@ o3djs.base.snapshotProvidedNamespaces = function()  {
   for (var i = 0; i < o3djs.provided_.length; ++i) {
     var object = o3djs.getObjectByName(o3djs.provided_[i]);
     o3djs.v8Initializer_ += o3djs.namespaceInitializer_(
-        object, o3djs.provided_[i], o3djs.v8InitializerArgs_);
+        /** @type {!Object} */ (object),
+        o3djs.provided_[i],
+        o3djs.v8InitializerArgs_);
   }
 
   o3djs.v8Initializer_ += '}\n';
@@ -543,7 +557,7 @@ o3djs.base.snapshotProvidedNamespaces = function()  {
  * Initializes the o3djs.sample library in a v8 instance. This should be called
  * for every V8 instance that uses the sample library. It is automatically
  * called by o3djs.util.makeClients.
- * @param {!o3d.plugin} clientObject O3D.Plugin Object.
+ * @param {!Element} clientObject O3D.Plugin Object.
  */
 o3djs.base.initV8 = function(clientObject)  {
   var v8Init = function(initializer, args) {
@@ -611,8 +625,9 @@ o3djs.base.init = function(clientObject)  {
  * @return {boolean} Whether the value is an array.
  */
 o3djs.base.isArray = function(value) {
+  var valueAsObject = /** @type {!Object} */ (value);
   return typeof(value) === 'object' && value !== null &&
-      'length' in value && 'splice' in value;
+      'length' in valueAsObject && 'splice' in valueAsObject;
 };
 
 /**
@@ -631,6 +646,22 @@ o3djs.base.ready = function() {
  */
 o3djs.base.maybeDeobfuscateFunctionName_ = function(name) {
   return name;
+};
+
+/**
+ * Makes one class inherit from another.
+ * @param {!Object} subClass Class that wants to inherit.
+ * @param {!Object} superClass Class to inherit from.
+ */
+o3djs.base.inherit = function(subClass, superClass) {
+  /**
+   * TmpClass.
+   * @ignore
+   * @constructor
+   */
+  var TmpClass = function() { };
+  TmpClass.prototype = superClass.prototype;
+  subClass.prototype = new TmpClass();
 };
 
 /**
@@ -680,7 +711,8 @@ o3djs.base.parseErrorStack = function(excp) {
 
 /**
  * Gets a function name from a function object.
- * @param {function} aFunction The function object to try to get a name from.
+ * @param {!function(...): *} aFunction The function object to try to get a
+ *      name from.
  * @return {string} function name or 'anonymous' if not found.
  */
 o3djs.base.getFunctionName = function(aFunction) {
@@ -760,12 +792,4 @@ o3djs.base.IsMSIE = function() {
   var ua = navigator.userAgent.toLowerCase();
   var msie = /msie/.test(ua) && !/opera/.test(ua);
   return msie;
-};
-/**
- * Returns true if the user's browser is Chrome 1.0, that requires a workaround
- * to create the plugin.
- * @return {boolean} true if the user's browser is Chrome 1.0.
- */
-o3djs.base.IsChrome10 = function() {
-  return navigator.userAgent.indexOf('Chrome/1.0') >= 0;
 };

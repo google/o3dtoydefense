@@ -29,6 +29,7 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+
 /**
  * @fileoverview This file contains a class for displaying frames per second.
  */
@@ -139,13 +140,12 @@ o3djs.fps.CONST_COLOR_EFFECT =
  * &lt;/body&gt;&lt;/html&gt;
  * </pre>
  *
- *
- * @constructor
  * @param {!o3d.Pack} pack Pack to create objects in.
  * @param {number} clientWidth width of client area.
  * @param {number} clientHeight Height of client area.
  * @param {!o3d.RenderNode} opt_parent RenderNode to use as parent for
  *     ViewInfo that will be used to render the FPS with.
+ * @return {!o3djs.fps.FPSManager} The created FPSManager.
  */
 o3djs.fps.createFPSManager = function(pack,
                                       clientWidth,
@@ -199,9 +199,9 @@ o3djs.fps.FPSManager = function(pack, clientWidth, clientHeight, opt_parent) {
   this.viewInfo.clearBuffer.clearColorFlag = false;
 
   this.viewInfo.zOrderedState.getStateParam('CullMode').value =
-      g_o3d.State.CULL_NONE;
+      o3djs.base.o3d.State.CULL_NONE;
 
-  this.viewInfo.drawContext.view = g_math.matrix4.lookAt(
+  this.viewInfo.drawContext.view = o3djs.math.matrix4.lookAt(
       [0, 0, 1],  // eye
       [0, 0, 0],  // target
       [0, 1, 0]); // up
@@ -271,7 +271,7 @@ o3djs.fps.FPSManager = function(pack, clientWidth, clientHeight, opt_parent) {
 
   // set the size and position.
   this.resize(clientWidth, clientHeight);
-  this.setPosition(10, 10, -1);
+  this.setPosition(10, 10);
 };
 
 /**
@@ -313,8 +313,8 @@ o3djs.fps.FPSManager.prototype.setPerfVisible = function(visible) {
 o3djs.fps.FPSManager.prototype.resize = function(clientWidth, clientHeight) {
   this.viewInfo.drawContext.projection = o3djs.math.matrix4.orthographic(
       0 + 0.5,
-      g_o3dWidth + 0.5,
-      g_o3dHeight + 0.5,
+      clientWidth + 0.5,
+      clientHeight + 0.5,
       0 + 0.5,
       0.001,
       1000);
@@ -400,6 +400,7 @@ o3djs.fps.FPSManager.prototype.update = function(renderEvent) {
 
 /**
  * A Class the manages a color rect.
+ * @constructor
  * @param {!o3d.Pack} pack Pack to create things in.
  * @param {!o3d.Shape} shape Shape to use for rectangle.
  * @param {!o3d.Transform} parent Transform to parent rect under.
