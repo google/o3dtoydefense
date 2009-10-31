@@ -1,0 +1,173 @@
+<!--
+Copyright 2009, Google Inc.
+All rights reserved.
+
+Redistribution and use in source and binary forms, with or without
+modification, are permitted provided that the following conditions are
+met:
+
+    * Redistributions of source code must retain the above copyright
+notice, this list of conditions and the following disclaimer.
+    * Redistributions in binary form must reproduce the above
+copyright notice, this list of conditions and the following disclaimer
+in the documentation and/or other materials provided with the
+distribution.
+    * Neither the name of Google Inc. nor the names of its
+contributors may be used to endorse or promote products derived from
+this software without specific prior written permission.
+
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+"AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
+A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
+OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
+LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
+DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
+THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+(INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+-->
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+  <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+  <title>Crazy Pixel Tower Defense</title>
+  <style type="text/css" media=screen>@import "game.css";</style>
+  <script src="../assets/gears_init.js" type="text/javascript"> </script>
+  <script type="text/javascript">
+  /*
+    try {
+      var localServer = google.gears.factory.create('beta.localserver');
+      var store = localServer.createManagedStore('test-store');
+      store.manifestUrl = 'site-manifest.txt';
+      store.checkForUpdate();
+    } catch (ex) {
+      if (window.dump != null) {
+        window.dump("No offline access.\n");
+      }
+    }
+    */
+  </script>
+
+  <script type="text/javascript" src="o3djs/base.js"></script>
+  <script type="text/javascript" src="o3djs/util.js"></script>
+  <script type="text/javascript" src="o3djs/math.js"></script>
+  <script type="text/javascript" src="o3djs/quaternions.js"></script>
+  <script type="text/javascript" src="o3djs/rendergraph.js"></script>
+  <script type="text/javascript" src="o3djs/camera.js"></script>
+  <script type="text/javascript" src="o3djs/arcball.js"></script>
+  <script type="text/javascript" src="o3djs/scene.js"></script>
+  <script type="text/javascript" src="o3djs/pack.js"></script>
+  <script type="text/javascript" src="o3djs/loader.js"></script>
+  <script type="text/javascript" src="o3djs/primitives.js"></script>
+  <script type="text/javascript" src="o3djs/canvas.js"></script>
+  <script type="text/javascript" src="o3djs/picking.js"></script>
+  <script type="text/javascript" src="o3djs/particles.js"></script>
+  <script src="constants.js" type="text/javascript"> </script>
+  <script src="util.js" type="text/javascript"> </script>
+  <script src="heappriorityqueue.js" type="text/javascript"> </script>
+  <script src="shortestpathtree.js" type="text/javascript"> </script>
+  <script src="client.js" type="text/javascript"> </script>
+  <script src="third_party/soundmanagerv25b-20080505/script/soundmanager2.js" type="text/javascript"></script>
+  <script src="sound.js" type="text/javascript"> </script>
+  <script src="drawnobj.js" type="text/javascript"> </script>
+  <script src="drawing.js" type="text/javascript"> </script>
+  <script src="creep.js" type="text/javascript"> </script>
+  <script src="explosion.js" type="text/javascript"> </script>
+  <script src="missile.js" type="text/javascript"> </script>
+  <script src="tower.js" type="text/javascript"> </script>
+  <script src="gridnode.js" type="text/javascript"> </script>
+<!--
+  <script src="highscoretable.js" type="text/javascript"> </script>
+-->
+  <script src="world.js" type="text/javascript"> </script>
+  <script src="gameLoad.js" type="text/javascript"> </script>
+  <script src="controls.js" type="text/javascript"> </script>
+  <script src="splashScreen.js" type="text/javascript"> </script>
+  <script src="init.js" type="text/javascript"> </script>
+  <script src="globalVariables.js" type="text/javascript"> </script>
+  <script src="main.js" type="text/javascript"> </script>
+</head>
+<body onload="init();" style = "border: 0px;">
+<table id="container"  width="100%" style="height:100%;">
+  <table>
+    <tr>
+      <td width="100%" height="100%">
+      <!--
+        <div id="o3d" style="width: 500px; height: 500px;"></div>
+      -->
+        <div id ="o3d" style="left:0px; top:0px; width:100%; height:100%; position:fixed;">
+      </td>
+    </tr>
+  </table>
+
+  <textarea id="shader" name="shader" cols="80" rows="20"
+    style="display:none;">
+    uniform float4x4 worldViewProjMatrix:worldViewProjection;
+    void vs(
+        float4 pos: POSITION,
+        float4 col: COLOR,
+        out float4 oPos: POSITION,
+        out float4 color : COLOR0)
+    {
+      oPos = mul(pos,worldViewProjMatrix);
+
+      color=col; //float4(1,0,0,1);
+    };
+
+    void fs(
+        float4 color: COLOR,
+        out float4 oCol: COLOR)
+    {
+      oCol=color;
+    };
+
+    // #o3d VertexShaderEntryPoint vs
+    // #o3d PixelShaderEntryPoint fs
+    // #o3d MatrixLoadOrder RowMajorOrder
+  </textarea>
+  <textarea id="texture_shader" name="texture_shader" cols="80" rows="20"
+    style="display:none;">
+    // This is our texture object
+    texture texture0;
+
+    // The texture sampler is used to access the texture bitmap in the fragment
+    // shader.
+    sampler2D texSampler0;
+
+    // input parameters for our vertex shader
+    struct a2v {
+      float4 pos : POSITION;
+      float2 tex : TEXCOORD0;  // Texture coordinates
+    };
+
+    // input parameters for our pixel shader
+    struct v2f {
+      float4 pos : POSITION;
+      float2 tex : TEXCOORD0;  // Texture coordinates
+    };
+
+    uniform float4x4 worldViewProjMatrix:worldViewProjection;
+    v2f vsMain(a2v IN) {
+      v2f OUT;
+      OUT.pos = mul(IN.pos,worldViewProjMatrix);
+      OUT.tex = IN.tex;
+      return OUT;
+    };
+
+    // Given the texture coordinates, our pixel shader grabs the corresponding
+    // color from the texture.
+    float4 psMain(v2f IN): COLOR {
+      return tex2D(texSampler0, IN.tex);
+    }
+
+    // Here we tell our effect file *which* functions are
+    // our vertex and pixel shaders.
+
+    // #o3d VertexShaderEntryPoint vsMain
+    // #o3d PixelShaderEntryPoint psMain
+    // #o3d MatrixLoadOrder RowMajorOrder
+  </textarea>
+</body>
+</html>
