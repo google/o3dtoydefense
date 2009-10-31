@@ -1,0 +1,14 @@
+
+For Glossiness:
+<shininess>
+	<float>1.46862</float>
+</shininess>
+
+<shininess>
+	<float>100</float>
+</shininess>
+
+
+For Mip Mapping:
+NONE
+LINEAR_MIPMAP_LINEAR
